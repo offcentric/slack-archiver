@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ESNext",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "lib": [ "esnext" ],
+    "noImplicitAny": false,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "allowJs": true,
+
+    "paths": {
+      "*": [
+        "node_modules/*",
+        "src/*"
+      ]
+    },
+
+    "inlineSources": true,
+
+    // Set `sourceRoot` to  "/" to strip the build path prefix
+    // from generated source code references.
+    // This improves issue grouping in Sentry.
+    "sourceRoot": "/"
+  },
+  "tsc-alias": {
+    "resolveFullPaths": true,
+    "verbose": false
+  },
+  "include": [
+    "src/**/*",
+    "test",
+    "src/tests"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "name": "slack-archiver",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "dist/server.js",
+  "engines": {
+    "npm": "^10.9.0",
+    "node": "^20.9.0"
+  },
+  "scripts": {
+    "listMessages": "tsx src/scripts/messages.list.ts",
+    "saveMessages": "tsx src/scripts/messages.save.ts",
+    "saveUsers": "tsx src/scripts/users.save.ts",
+    "saveFile": "tsx src/scripts/file.save.ts",
+    "getFile": "tsx src/scripts/file.info.ts",
+    "fixAttachments": "tsx src/scripts/attachment.fix.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/offcentric/slack-archiver.git"
+  },
+  "author": "Mark Mulder",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/offcentric/slack-archiver/issues"
+  },
+  "homepage": "https://github.com/offcentric/slack-archiver#readme",
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.32.1",
+    "@slack/web-api": "^7.8.0",
+    "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
+    "date-format": "^4.0.14",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "knex": "^3.1.0",
+    "morgan": "^1.10.0",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.12.0",
+    "node-cache": "^5.1.2",
+    "nodemon": "^3.1.9",
+    "pg": "^8.13.1",
+    "rotating-file-stream": "^3.2.5",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  },
+  "private": true
+}
