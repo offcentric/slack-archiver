@@ -25,9 +25,9 @@ interface MessageContents{
 }
 
 export const initSlack = async (workspace) => {
-    const slackToken = getEnvConfig("SLACK_TOKEN_"+workspace.toUpperCase());
+    const appToken = getAppToken(workspace);
     console.log("LOADED WORKSPACE CONFIG ", workspace);
-    slack = new WebClient(slackToken);
+    slack = new WebClient(appToken);
 }
 
 const getChannelId = async(channelName:string):Promise<string> => {
@@ -102,6 +102,10 @@ export const getFile = async (fileUid   :string) => {
     return ret;
 }
 
-export const getWebhookToken = () => {
-    return getEnvConfig('SLACK_WEBHOOK_TOKEN');
+export const getWebhookToken = (workspace) => {
+    return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+workspace.toUpperCase());
+}
+
+export const getAppToken = (workspace) => {
+    return getEnvConfig("SLACK_TOKEN_"+workspace.toUpperCase());
 }
