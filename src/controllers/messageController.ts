@@ -46,7 +46,8 @@ export const save = async (req, res) => {
         let message = event;
 
         if(body.subtype && body.subtype === 'message_changed'){
-            message = body.previous_message;
+            message = body.message;
+            message.ts = body.previousMessage.ts;
         }
         const ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
         return returnSuccess(res, ret);
