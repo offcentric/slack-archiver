@@ -67,6 +67,7 @@ const getMessageBatch = async (resp, channelName, workspace, doSave) => {
 }
 
 export const saveMessageData = async(message, workspace, channelName, parentId?) => {
+    console.log("MESSAGE", message);
     const payload = {
         user: message.user,
         client_msg_id: message.client_msg_id,

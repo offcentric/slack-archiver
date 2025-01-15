@@ -1,6 +1,6 @@
 import {returnSuccess, returnError, returnExceptionAsError} from "helpers/response";
 import {saveMessageData} from "models/message";
-import {getChannelName, getWebhookToken} from "providers/slack";
+import {getChannelName, getWebhookToken, initSlack} from "providers/slack";
 
 
 export const save = async (req, res) => {
@@ -11,18 +11,17 @@ export const save = async (req, res) => {
 
     try{
         const body = req.body;
-
         if(body.challenge){
             return returnSuccess(res, body.challenge);
         }
 
-        const workspace = req.params.workspace;
+        const workspace = req.query.workspace;
 
-        const {channel, event, token} = body;
-
-        if(!channel){
-            return returnError(res,'missing_channel');
+        if(!workspace){
+            return returnError(res,'missing_workspace');
         }
+
+        const {event, token} = body;
 
         if(!event){
             return returnError(res,'missing_event_data');
@@ -32,14 +31,20 @@ export const save = async (req, res) => {
             return returnError(res, 'missing_token');
         }
 
-        if(body.token !== getWebhookToken()){
+        if(token !== getWebhookToken()){
             return returnError(res, 'token_mismatch');
         }
 
-        const channelName = await getChannelName(channel);
-        const message = body.message
+        const channel = event.channel;
 
-        const ret = await saveMessageData(message, workspace, channelName);
+        if(!channel){
+            return returnError(res,'missing_channel');
+        }
+
+        await initSlack(workspace);
+        const channelName = await getChannelName(channel);
+
+        const ret = await saveMessageData(event, workspace, channelName);
         return returnSuccess(res, ret);
     }catch (e){
         return returnExceptionAsError(res,e)
