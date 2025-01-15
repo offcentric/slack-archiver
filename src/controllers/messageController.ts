@@ -43,8 +43,12 @@ export const save = async (req, res) => {
 
         await initSlack(workspace);
         const channelName = await getChannelName(channel);
+        let message = event;
 
-        const ret = await saveMessageData(event, workspace, channelName, event.thread_ts);
+        if(body.subtype && body.subtype === 'message_changed'){
+            message = body.previous_message;
+        }
+        const ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
         return returnSuccess(res, ret);
     }catch (e){
         return returnExceptionAsError(res,e)

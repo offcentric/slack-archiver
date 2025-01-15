@@ -92,6 +92,7 @@ export const saveMessageData = async(message, workspace, channelName, parentId?)
         client_msg_id: message.client_msg_id,
         datetime: getDateTime(message.ts),
         ts: message.ts,
+        type: message.type,
         channel: channelName,
         team: message.team,
         text: message.text,
