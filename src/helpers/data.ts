@@ -282,7 +282,7 @@ export const softDeleteItem = async(tableName:string, params:any, responseFields
 export const hardDeleteItem = async(tableName:string, params:any, responseFields = ['id']) => {
     const send:any = async () => {
         const resp:any = await db.transaction((t) => {
-            // console.log("****** DELETE SQL ***************", t(tableName).delete(responseFields).where(params).toString());
+            console.log("****** DELETE SQL ***************", t(tableName).delete(responseFields).where(params).toString());
             return t(tableName).where(params).delete(responseFields);
         });
     }

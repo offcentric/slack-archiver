@@ -1,4 +1,4 @@
-import {addedit} from "helpers/data";
+import {addedit, get, getBy, hardDeleteItem} from "helpers/data";
 import {getDateTime} from "helpers/date";
 import {getMessagesBatch, getRepliesForMessage} from "providers/slack";
 import {saveAttachments} from "models/attachment";
@@ -68,6 +68,20 @@ const getMessageBatch = async (resp, channelName, workspace, doSave) => {
 
 export const saveMessageData = async(message, workspace, channelName, parentId?) => {
     console.log("MESSAGE", message);
+    if(message.subtype === 'message_deleted'){
+        const messageData = await getBy('message', {ts:message.deleted_ts}, [], false, ['block_ids', 'file_ids', 'attachment_ids']);
+        if(messageData.block_ids){
+            await hardDeleteItem('block', {id:messageData.block_ids});
+        }
+        if(messageData.file_ids){
+            await hardDeleteItem('block', {id:messageData.file_ids});
+        }
+        if(messageData.attachment_ids){
+            await hardDeleteItem('block', {id:messageData.attachment_ids});
+        }
+        return await hardDeleteItem('message', {ts:message.deleted_ts})
+    }
+
     const payload = {
         user: message.user,
         client_msg_id: message.client_msg_id,
