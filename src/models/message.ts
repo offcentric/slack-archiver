@@ -68,13 +68,13 @@ const getMessageBatch = async (resp, channelName, workspace, doSave) => {
 }
 
 export const saveMessageData = async(message, workspace, channelName, parentId?) => {
-    console.log("MESSAGE", message);
+    // console.log("MESSAGE", message);
     if(message.subtype === 'message_deleted'){
         const messageData = await getBy('message', {ts:message.deleted_ts}, [], false, ['block_ids', 'file_ids', 'attachment_ids']);
         if(!messageData){
             throw new Exception('message_not_found');
         }
-        console.log("SAVED MESSAGE", messageData);
+        // console.log("SAVED MESSAGE", messageData);
         if(messageData.block_ids.length){
             await hardDeleteItem('block', {id:messageData.block_ids});
         }

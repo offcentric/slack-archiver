@@ -193,11 +193,11 @@ export const addedit = async(tableName:string, params:any, indexField = 'id', ac
             if(indexField){
                 st.onConflict([indexField]).merge();
             }
-console.log("****** ADD SQL PARAMS ***************", params);
-console.log("****** ADD SQL ***************", st.insert(params).toString());
+// console.log("****** ADD SQL PARAMS ***************", params);
+// console.log("****** ADD SQL ***************", st.insert(params).toString());
             return st.insert(params);
         });
-        console.log("RAW RESPONSE", resp);
+        // console.log("RAW RESPONSE", resp);
         if(resp.command === 'INSERT' && resp.rowCount){
             return true;
         }
