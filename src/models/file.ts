@@ -10,7 +10,7 @@ export const saveFiles = async (payload:any, files:Array<any>, workspace) => {
     for(let file of files){
         await downloadFile(file, payload.channel, workspace);
         const resp = await saveFile(file, workspace);
-        console.log("FILE SAVED", resp);
+        // console.log("FILE SAVED", resp);
         if(typeof resp === "object"){
             fileIds.push(resp.id);
         }else{
@@ -46,7 +46,7 @@ const downloadFile = async(file, channelName, workspace) => {
     };
 
     let downloadUrl;
-    console.log("DOWNLOAD FILE START", file);
+    // console.log("DOWNLOAD FILE START", file);
     if(file.mp4){
         downloadUrl = file.mp4;
     }else if(file.thumb_1024){
@@ -83,7 +83,7 @@ const downloadFile = async(file, channelName, workspace) => {
         fs.mkdirSync('files/'+workspace+'/'+channelName);
     }
     file.savepath = 'files/'+workspace+'/'+channelName+'/'+fileName;
-    console.log("DOWNLOAD FILE", file);
+    // console.log("DOWNLOAD FILE", file);
     fs.writeFileSync(file.savepath, buffer);
 }
 

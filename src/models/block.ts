@@ -18,7 +18,6 @@ export const saveBlocks = async (payload:any, blocks:Array<any>, workspace) => {
 }
 
 export const saveBlock = async(block) => {
-    console.log("BLOCK TITLE", block.title);
     const payload:any = {uid:block.block_id, image_url:block.image_url, alt_text:block.alt_text, type:block.type, url:block.url, text:block.text};
 
     // if(block.type === 'rich_text' || block.type === 'rich_text_section'){

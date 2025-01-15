@@ -18,7 +18,7 @@ export const saveAttachments = async (payload:any, attachments:Array<any>, works
             await saveBlocks(payload, attachment.blocks, workspace)
         }
         const resp = await saveAttachment(attachment, payload, workspace);
-        console.log("ATTACHMENT SAVED", resp);
+        // console.log("ATTACHMENT SAVED", resp);
         if(typeof resp === "object"){
             attachmentIds.push(resp.id);
         }else{
@@ -34,12 +34,12 @@ export const fixAttachments = async(workspace) => {
     const list = await getCollection('attachment', {from_url:null, image_url:null, block_ids:null});
     let currentWorkspace = workspace;
     for(const attachment of list){
-        console.log("ATTACHMENT", attachment);
+        // console.log("ATTACHMENT", attachment);
         const message = await getBy("message", {ts:{like: attachment.ts+'%'}}, [], false, ['id','ts','channel','workspace']);
         if(!message){
             continue;
         }
-        console.log("MESSAGE", message);
+        // console.log("MESSAGE", message);
 
         if(message.workspace && message.workspace !== currentWorkspace){
             currentWorkspace = message.workspace;
@@ -52,13 +52,13 @@ export const fixAttachments = async(workspace) => {
             continue;
         }
         const slackMessage = resp.messages[0];
-        console.log("SLACK MESSAGE", slackMessage);
+        // console.log("SLACK MESSAGE", slackMessage);
         await saveMessageData(slackMessage, message.workspace, message.channel)
     }
 }
 
 export const saveAttachment = async(attachment, payload, workspace) => {
-    return addedit('attachment', {
+    payload = {
         from_url: attachment.from_url,
         image_url: attachment.image_url,
         title: attachment.title,
@@ -68,5 +68,7 @@ export const saveAttachment = async(attachment, payload, workspace) => {
         channel: payload.channel,
         block_ids:payload.block_ids,
         workspace
-    }, 'id');
+    };
+    console.log("SAVING ATTACHMENT", payload);
+    return addedit('attachment', payload, 'id');
 }
