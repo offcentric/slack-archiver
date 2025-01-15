@@ -102,7 +102,7 @@ export const getFile = async (fileUid   :string) => {
     return ret;
 }
 
-export const getWebhookToken = (workspace) => {
+export const getWebhookToken = (workspace:string) => {
     return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+workspace.toUpperCase());
 }
 

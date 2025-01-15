@@ -31,7 +31,7 @@ export const save = async (req, res) => {
             return returnError(res, 'missing_token');
         }
 
-        if(token !== getWebhookToken()){
+        if(token !== getWebhookToken(workspace)){
             return returnError(res, 'token_mismatch');
         }
 
