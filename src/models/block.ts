@@ -3,7 +3,7 @@ import {addedit, getCollection} from "helpers/data";
 export const saveBlocks = async (payload:any, blocks:Array<any>, workspace) => {
     const blockIds = [];
     for(let block of blocks){
-        if(block.type === 'image'){
+        if(['image','link','rich_text','rich_text_section'].includes(block.type)){
             const resp = await saveBlock(block);
             if(typeof resp === "object"){
                 blockIds.push(resp.id);
@@ -19,7 +19,12 @@ export const saveBlocks = async (payload:any, blocks:Array<any>, workspace) => {
 
 export const saveBlock = async(block) => {
     console.log("BLOCK TITLE", block.title);
-    const payload = {uid:block.block_id, image_url:block.image_url, alt_text:block.alt_text, type:block.type};
+    const payload:any = {uid:block.block_id, image_url:block.image_url, alt_text:block.alt_text, type:block.type, url:block.url, text:block.text};
+
+    if(block.type === 'rich_text' || block.type === 'rich_text_section'){
+        payload.elements = JSON.stringify(block.elements);
+    }
     console.log("SAVING BLOCK", payload);
-    return addedit('block', payload, 'uid', 'add', ['id','uid']);
+    const ret = await addedit('block', payload, 'uid', 'add', ['id','uid']);
+    return ret;
 }

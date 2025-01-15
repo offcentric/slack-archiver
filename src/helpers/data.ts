@@ -1,4 +1,4 @@
-import {db} from '../db/knex';
+import {db} from '../db/knex-pg';
 import {errorMessage, status} from '../helpers/status';
 import {set as setCache, get as getCache, del as deleteCache, getCacheKey} from '../helpers/cache';
 import Exception from '../models/exception';
@@ -105,7 +105,6 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             return ret;
         }
 
-        const filters = [];
         const send = async () => {
             const filters = paramsToFilters(params, joins);
             const qb = db(tableName);
@@ -282,8 +281,11 @@ export const softDeleteItem = async(tableName:string, params:any, responseFields
 export const hardDeleteItem = async(tableName:string, params:any, responseFields = ['id']) => {
     const send:any = async () => {
         const resp:any = await db.transaction((t) => {
-            console.log("****** DELETE SQL ***************", t(tableName).delete(responseFields).where(params).toString());
-            return t(tableName).where(params).delete(responseFields);
+            const filters = paramsToFilters(params);
+            const qb = t(tableName);
+            addFiltersToQuery(qb, filters, tableName)
+            console.log("****** DELETE SQL ***************", qb.delete(responseFields).toString());
+            return qb.delete(responseFields);
         });
     }
 
@@ -362,7 +364,7 @@ export const addFiltersToQuery = (qb, filters, tableName) => {
     if(filters.length){
         filters.forEach((el) => {
             if(el.comp.toLowerCase() == 'in'){
-                qb.andWhereIn(el.key, el.val);
+                qb.andWhere(el.key, 'in', el.val);
             }else if(el.comp.toLowerCase() === 'is'){
                 qb.andWhereRaw(el.key + ' ' + el.comp + ' ' + el.val);
             }else if(el.comp == 'any'){
@@ -413,7 +415,7 @@ export const getHoursDiff = (date1, date2) => {
 }
 
 export const alreadyExists = (response) => {
-    console.log("REsononse", response);
+    console.log("Response", response);
     return response && response.match(/Key \([^)]+\)=\([^)]+\) already exists\./);
 }
 

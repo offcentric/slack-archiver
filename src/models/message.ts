@@ -4,6 +4,7 @@ import {getMessagesBatch, getRepliesForMessage} from "providers/slack";
 import {saveAttachments} from "models/attachment";
 import {saveFiles} from "models/file";
 import {saveBlocks} from "models/block";
+import Exception from "models/exception";
 
 var messageCount = 0
 
@@ -70,14 +71,18 @@ export const saveMessageData = async(message, workspace, channelName, parentId?)
     console.log("MESSAGE", message);
     if(message.subtype === 'message_deleted'){
         const messageData = await getBy('message', {ts:message.deleted_ts}, [], false, ['block_ids', 'file_ids', 'attachment_ids']);
-        if(messageData.block_ids){
+        if(!messageData){
+            throw new Exception('message_not_found');
+        }
+        console.log("SAVED MESSAGE", messageData);
+        if(messageData.block_ids.length){
             await hardDeleteItem('block', {id:messageData.block_ids});
         }
-        if(messageData.file_ids){
-            await hardDeleteItem('block', {id:messageData.file_ids});
+        if(messageData.file_ids.length){
+            await hardDeleteItem('file', {id:messageData.file_ids});
         }
-        if(messageData.attachment_ids){
-            await hardDeleteItem('block', {id:messageData.attachment_ids});
+        if(messageData.attachment_ids.length){
+            await hardDeleteItem('attachment', {id:messageData.attachment_ids});
         }
         return await hardDeleteItem('message', {ts:message.deleted_ts})
     }
