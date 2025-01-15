@@ -107,5 +107,9 @@ export const getWebhookToken = (workspace:string) => {
 }
 
 export const getAppToken = (workspace) => {
-    return getEnvConfig("SLACK_TOKEN_"+workspace.toUpperCase());
+    return getEnvConfig("SLACK_APP_TOKEN_"+workspace.toUpperCase());
+}
+
+export const getUserToken = (workspace) => {
+    return getEnvConfig("SLACK_USER_TOKEN_"+workspace.toUpperCase());
 }
