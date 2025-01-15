@@ -1,8 +1,9 @@
 import express from 'express';
 
-import * as controller from '../controllers/messageController';
+import {save, test} from '../controllers/messageController';
 const router = express.Router({mergeParams: true});
 
-router.post('/saveMessage', controller.save);
+router.post('/saveMessage', save);
+router.get('/test', test);
 
 export default router;
