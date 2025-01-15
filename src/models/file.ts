@@ -90,5 +90,5 @@ const downloadFile = async(file, channelName, workspace) => {
 export const saveFile = async(file, workspace) => {
     const payload = {uid:file.id, created_at:getDateTime(file.timestamp), name:file.name, title:file.title, mimetype:file.mimetype, filetype:file.filetype, user:file.user, workspace, url:file.url_private, thumbnail:file.thumb_360, savepath:file.savepath};
     console.log("SAVE FILE", payload);
-    return addedit('file', payload, 'uid', 'add', ['id']);
+    return addedit('file', payload, 'uid', 'add', ['uid','id']);
 }
