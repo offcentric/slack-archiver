@@ -20,7 +20,7 @@ export const save = async (req, res) => {
         if(!workspace){
             return returnError(res,'missing_workspace');
         }
-
+        // console.log("SLACK MESSAGE", body);
         const {event, token} = body;
 
         if(!event){
@@ -45,9 +45,9 @@ export const save = async (req, res) => {
         const channelName = await getChannelName(channel);
         let message = event;
 
-        if(body.subtype && body.subtype === 'message_changed'){
-            message = body.message;
-            message.ts = body.previousMessage.ts;
+        if(message.subtype && message.subtype === 'message_changed'){
+            message = event.message;
+            message.ts = event.previous_message.ts;
         }
         const ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
         return returnSuccess(res, ret);
