@@ -141,7 +141,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             // console.log("************************* COLLECTION PAYLOAD ["+tableName+"] **************************", params);
             // console.log("************************* COLLECTION PARAMS ["+tableName+"] **************************", filters);
             // console.log("************************* COLLECTION RESPONSE ["+responseFields+"] **************************", filters);
-            console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
+            // console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
             // const keyData = qb.select().toString()+responseFields.toString()+!!distinct;
             // let ret = null;
             // ret = await getMemoizedData(keyData);
@@ -328,7 +328,7 @@ export const getModelFieldnames = async(tableName:string, modelFields) => {
 export const paramsToFilters = (params, joins?) => {
     const filters = [];
     Object.keys(params).forEach(key => {
-        console.log("PARAMS", params);
+        // console.log("PARAMS", params);
         let val = params[key];
         if(Array.isArray(val)) {
             filters.push({key, comp: 'in', val});
@@ -415,7 +415,7 @@ export const getHoursDiff = (date1, date2) => {
 }
 
 export const alreadyExists = (response) => {
-    console.log("Response", response);
+    // console.log("Response", response);
     return response && response.match(/Key \([^)]+\)=\([^)]+\) already exists\./);
 }
 

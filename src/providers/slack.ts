@@ -63,6 +63,7 @@ export const getChannellist = async() => {
             const channelData = channelsData.channels[i];
             ret[channelData.name] = channelData.id;
         }
+        cache.set('SLACK_CHANNELS_LIST', ret);
     }
     return ret;
 }

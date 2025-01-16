@@ -16,5 +16,5 @@ if(!db){
     throw new Exception('missing_or_unknown_database_engine');
 }
 
-console.log("DB", db.context.client.config);
+// console.log("DB", db.context.client.config);
 export {db};

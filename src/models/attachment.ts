@@ -7,7 +7,7 @@ export const saveAttachments = async (payload:any, attachments:Array<any>, works
     const list = await getCollection('attachment', {ts:payload.ts}, ['id']);
     if(list.length > 0){
         for(const item of list){
-            console.log("HARD DELETE", item);
+            // console.log("HARD DELETE", item);
             await hardDeleteItem('attachment', {id:item.id})
         }
     }
