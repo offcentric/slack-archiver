@@ -8,7 +8,7 @@ export const saveFiles = async (payload:any, files:Array<any>, workspace) => {
 
     const fileIds = [];
     for(let file of files){
-        console.log("SAVING FILE", file);
+        // console.log("SAVING FILE", file);
         await downloadFile(file, payload.channel, workspace);
         const resp = await saveFile(file, workspace);
         // console.log("FILE SAVED", resp);
@@ -48,8 +48,8 @@ const downloadFile = async(file, channelName, workspace) => {
     let downloadUrl;
     // console.log("DOWNLOAD FILE START", file);
     if(file.mp4){
-        const maxDownloadSize = getEnvConfig('MAX_DOWNLOAD_FILE_SIZE_KB');
-        if(file.size > maxDownloadSize) {
+        const maxDownloadSize = getEnvConfig('MAX_DOWNLOAD_FILE_SIZE_KB', 100000)*1000;
+        if(parseInt(file.size) > maxDownloadSize) {
             console.log("VIDEO FILE EXCEEDS MAX DOWNLOAD SIZE OF "+maxDownloadSize+', CANNOT DOWNLOAD');
             return;
         }
