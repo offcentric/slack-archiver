@@ -3,8 +3,8 @@ import process from "node:process";
 export const parseFlags = (args) => {
     const flagsArr = args.slice(3);
     console.log("FLAGS", args);
-    const allowedFlags = ['-c','-u','-l'];
-    let channel, user, latest = null;
+    const allowedFlags = ['-channel','-uuser','-latest','-limit'];
+    let channel, user, latest, limit = null;
 
     for(let i=0; i <flagsArr.length; i++){
         const flagName = flagsArr[i];
@@ -15,14 +15,18 @@ export const parseFlags = (args) => {
                 process.exit(1);
             }else{
                 switch(flagName){
-                    case '-c':
+                    case '-channel':
                         channel = flagVal;
                         break;
-                    case '-u':
+                    case '-user':
                         user = flagVal;
                         break;
-                    case '-l':
+                    case '-latest':
                         latest = flagVal;
+                        break;
+                    case '-limit':
+                        limit = parseInt(flagVal);
+                        break;
                 }
                 i++;
             }
@@ -31,6 +35,7 @@ export const parseFlags = (args) => {
             process.exit(1);
         }
     }
-
-    return {channel, user, latest};
+    const ret = {channel, user, latest, limit};
+    console.log("PARSED FLAGS", ret);
+    return ret;
 }
