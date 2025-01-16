@@ -45,14 +45,16 @@ const downloadFile = async(file, channelName, workspace) => {
         headers: {Authorization: "Bearer "+userToken}
     };
 
-    let downloadUrl;
-    // console.log("DOWNLOAD FILE START", file);
-    if(file.mp4){
-        const maxDownloadSizeKb = getEnvConfig('MAX_DOWNLOAD_FILE_SIZE_KB', 100000);
+    if(['mp4','mov','avi','mkv'].includes(file.filetype)){
+        const maxDownloadSizeKb = getEnvConfig('MAX_DOWNLOAD_FILE_SIZE_KB', 50000);
         if(parseInt(file.size) > maxDownloadSizeKb*1000) {
             console.log("VIDEO FILE EXCEEDS MAX DOWNLOAD SIZE OF "+maxDownloadSizeKb+',KB CANNOT DOWNLOAD');
             return;
         }
+    }
+    let downloadUrl;
+    console.log("DOWNLOAD FILE START", file);
+    if(file.mp4){
         downloadUrl = file.mp4;
     }else if(file.thumb_1024){
         downloadUrl = file.thumb_1024;
