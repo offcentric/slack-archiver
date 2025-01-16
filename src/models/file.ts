@@ -48,9 +48,9 @@ const downloadFile = async(file, channelName, workspace) => {
     let downloadUrl;
     // console.log("DOWNLOAD FILE START", file);
     if(file.mp4){
-        const maxDownloadSize = getEnvConfig('MAX_DOWNLOAD_FILE_SIZE_KB', 100000)*1000;
-        if(parseInt(file.size) > maxDownloadSize) {
-            console.log("VIDEO FILE EXCEEDS MAX DOWNLOAD SIZE OF "+maxDownloadSize+', CANNOT DOWNLOAD');
+        const maxDownloadSizeKb = getEnvConfig('MAX_DOWNLOAD_FILE_SIZE_KB', 100000);
+        if(parseInt(file.size) > maxDownloadSizeKb*1000) {
+            console.log("VIDEO FILE EXCEEDS MAX DOWNLOAD SIZE OF "+maxDownloadSizeKb+',KB CANNOT DOWNLOAD');
             return;
         }
         downloadUrl = file.mp4;
