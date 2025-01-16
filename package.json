@@ -9,12 +9,16 @@
     "node": "^20.9.0"
   },
   "scripts": {
+    "openChannel": "tsx src/scripts/channel.open.ts",
+    "listChannels": "tsx src/scripts/channels.list.ts",
     "listMessages": "tsx src/scripts/messages.list.ts",
+    "listUsers": "tsx src/scripts/users.list.ts",
     "saveMessages": "tsx src/scripts/messages.save.ts",
     "saveUsers": "tsx src/scripts/users.save.ts",
     "saveFile": "tsx src/scripts/file.save.ts",
     "getFile": "tsx src/scripts/file.info.ts",
-    "fixAttachments": "tsx src/scripts/attachment.fix.ts"
+    "fixAttachments": "tsx src/scripts/attachment.fix.ts",
+    "build": "tsc && tsc-alias"
   },
   "repository": {
     "type": "git",
@@ -42,10 +46,12 @@
     "nodemon": "^3.1.9",
     "pg": "^8.13.1",
     "rotating-file-stream": "^3.2.5",
+    "tsc": "^2.0.4",
+    "tsc-alias": "^1.8.10",
     "tsx": "^4.19.2"
   },
   "devDependencies": {
-    "typescript": "^5.5.3"
+    "typescript": "^5.7.3"
   },
   "private": true
 }

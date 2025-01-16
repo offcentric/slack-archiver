@@ -8,21 +8,21 @@ import Exception from "models/exception";
 
 var messageCount = 0
 
-export const getMessagesForChannel = async(channelName:string, workspace, doSave = false) => {
+export const getMessagesForChannel = async(workspace, channelName?:string, user?:string, latest?:number, doSave = false) => {
 
     let ret = [];
     let resp:any = {messages:[], has_more:true};
     let cursor = null;
 
     do{
-        resp = await getMessagesBatch(channelName, cursor);
+        resp = await getMessagesBatch(channelName, user, cursor, latest);
         console.log("LOADED "+resp.messages.length+" MESSAGES");
         if(!resp.messages.length){
             break;
         }
         const lastMessage = resp.messages[resp.messages.length-1];
         console.log("LAST MESSAGE",lastMessage, getDateTime(lastMessage.ts));
-        await getMessageBatch(resp, channelName, workspace, doSave)
+        await processMessageBatch(resp, channelName, workspace, doSave)
         ret = ret.concat(resp.messages);
         cursor = resp.response_metadata.next_cursor;
         console.log("NEXT CURSOR", cursor);
@@ -33,7 +33,7 @@ export const getMessagesForChannel = async(channelName:string, workspace, doSave
     return ret;
 }
 
-const getMessageBatch = async (resp, channelName, workspace, doSave) => {
+const processMessageBatch = async (resp, channelName, workspace, doSave) => {
     for (const message of resp.messages) {
 
         // console.log("MESSAGE", message, getDateTime(message.ts));

@@ -47,7 +47,7 @@ export const fixAttachments = async(workspace) => {
             initSlack(currentWorkspace);
         }
 
-        const resp = await getMessagesBatch(message.channel, null, message.ts);
+        const resp = await getMessagesBatch(message.channel, null, null, message.ts);
         if(!resp.messages.length){
             continue;
         }

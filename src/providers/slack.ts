@@ -26,7 +26,7 @@ interface MessageContents{
 
 export const initSlack = async (workspace) => {
     const appToken = getAppToken(workspace);
-    console.log("LOADED WORKSPACE CONFIG ", workspace);
+    console.log("LOADED WORKSPACE CONFIG ", workspace, appToken);
     slack = new WebClient(appToken);
 }
 
@@ -67,17 +67,31 @@ export const getChannellist = async() => {
     return ret;
 }
 
+export const getChannel = async(channelName, user) => {
+    const payload = {channel:null, users:null, return_im:true}
+    if(channelName){
+        payload.channel = await getChannelId(channelName)
+    }
+    if(user){
+        payload.users = user;
+    }
+    return await slack.conversations.open(payload);
+}
+
 export const getUserlist = async() => {
     const ret = await slack.users.list({});
     return ret;
 }
 
-export const getMessagesBatch = async (channelName:string, cursor?, ts?: number): Promise<ConversationsHistoryResponse> => {
-    const channel = await getChannelId(channelName);
-    const payload:ConversationsHistoryArguments = {channel, limit:1000}
-    if(ts){
-        payload.oldest = (ts) + '';
-        payload.latest = (ts) + '';
+export const getMessagesBatch = async (channelName:string, channelId?:string, cursor?, latest?: number): Promise<ConversationsHistoryResponse> => {
+
+    if(!channelId){
+        channelId = await getChannelId(channelName);
+    }
+
+    const payload:ConversationsHistoryArguments = {channel:channelId, limit:1000}
+    if(latest){
+        payload.latest = (latest) + '';
         payload.inclusive = true;
     }
     if(cursor){
@@ -85,7 +99,7 @@ export const getMessagesBatch = async (channelName:string, cursor?, ts?: number)
     }
     console.log("CALLING slack.conversations.history", payload);
     const resp = await slack.conversations.history(payload);
-    // console.log("CONVERSATIONS", resp);
+    console.log("CONVERSATIONS", resp);
     return resp;
 }
 

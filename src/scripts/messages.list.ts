@@ -1,21 +1,29 @@
-import {getRepliesForMessage, initSlack} from '../providers/slack';
+import {parseFlags} from "../../dist/helpers/script";
+import {initSlack} from '../providers/slack';
 import {getMessagesForChannel} from '../models/message';
+import * as process from "node:process";
 
-const messagesList = async (workspace, channelName) => {
+const messagesList = async (workspace:string, channelName?:string, user?:string, latest?:number) => {
 
     await initSlack(workspace);
-    await getMessagesForChannel(channelName, workspace);
+    await getMessagesForChannel(workspace, channelName, user, latest);
     process.exit();
 
-    // console.log("****************** ALL MESSAGES ************************");
-    // console.log(allMessages);
 }
 
-if (process.argv.length > 3) {
-    // console.log("CONTENT TYPE", process.argv[2]);
-    messagesList(process.argv[2], process.argv[3]);
-}else if (process.argv.length > 2) {
-    console.error("MISSING CHANNEL NAME ARGUMENT");
+if (process.argv.length > 2) {
+    const workspace = process.argv[2];
+
+    // parse flags
+    if(process.argv.length > 3){
+        const {channel, user, latest} = parseFlags(process.argv);
+        const ret = await messagesList(workspace, channel, user, latest);
+        console.log(ret);
+
+    }else{
+        console.error('MISSING -c or -u FLAG');
+        process.exit(1);
+    }
 }else{
-    console.error("MISSING WORKSPACE AND CHANNEL NAME ARGUMENT");
+    console.error("MISSING WORKSPACE ARGUMENT + FLAGS");
 }
