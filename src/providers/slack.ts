@@ -100,7 +100,7 @@ export const getMessagesBatch = async (channelName:string, channelId?:string, cu
     }
     console.log("CALLING slack.conversations.history", payload);
     const resp = await slack.conversations.history(payload);
-    console.log("CONVERSATIONS", resp);
+    console.log("CONVERSATIONS", resp.ok, resp.messages.length);
     return resp;
 }
 
