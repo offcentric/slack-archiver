@@ -84,7 +84,7 @@ export const getUserlist = async() => {
     return ret;
 }
 
-export const getMessagesBatch = async (channelName:string, channelId?:string, cursor?, latest?: number): Promise<ConversationsHistoryResponse> => {
+export const getMessagesBatch = async (channelName:string, channelId?:string, cursor?, latest?: number, limit?:number): Promise<ConversationsHistoryResponse> => {
 
     if(!channelId){
         channelId = await getChannelId(channelName);
@@ -94,6 +94,9 @@ export const getMessagesBatch = async (channelName:string, channelId?:string, cu
     if(latest){
         payload.latest = (latest) + '';
         payload.inclusive = true;
+    }
+    if(limit){
+        payload.limit = limit;
     }
     if(cursor){
         payload.cursor = cursor;

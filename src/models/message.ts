@@ -8,25 +8,24 @@ import Exception from "models/exception";
 
 var messageCount = 0
 
-export const getMessagesForChannel = async(workspace, channelName?:string, user?:string, latest?:number, doSave = false) => {
+export const getMessagesForChannel = async(workspace, channelName?:string, user?:string, latest?:number, limit?:number, doSave = false) => {
 
     let ret = [];
     let resp:any = {messages:[], has_more:true};
     let cursor = null;
-
     do{
-        resp = await getMessagesBatch(channelName, user, cursor, latest);
+        resp = await getMessagesBatch(channelName, user, cursor, latest, limit);
         console.log("LOADED "+resp.messages.length+" MESSAGES");
         if(!resp.messages.length){
             break;
         }
         const lastMessage = resp.messages[resp.messages.length-1];
-        console.log("LAST MESSAGE",lastMessage, getDateTime(lastMessage.ts));
+        // console.log("LAST MESSAGE",lastMessage, getDateTime(lastMessage.ts));
         await processMessageBatch(resp, channelName, workspace, doSave)
         ret = ret.concat(resp.messages);
         cursor = resp.response_metadata.next_cursor;
         console.log("NEXT CURSOR", cursor);
-    }while (resp.has_more === true)
+    }while (resp.has_more === true && limit === null)
 
     console.log("TOTAL MESSAGE COUNT", messageCount);
     // console.log("MESSAGES FROM SLACK API", ret);
@@ -103,14 +102,17 @@ export const saveMessageData = async(message, workspace, channelName, parentId?)
     };
 
     if (message.attachments) {
+        // console.log("ATTACHMENTS", message.attachments);
         await saveAttachments(payload, message.attachments, workspace)
     }
 
     if (message.files) {
+        // console.log("FILES", message.files);
         await saveFiles(payload, message.files, workspace)
     }
 
     if (message.blocks) {
+        // console.log("BLOCKS", message.blocks);
         await saveBlocks(payload, message.blocks, workspace)
     }
 

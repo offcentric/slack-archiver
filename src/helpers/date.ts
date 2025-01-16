@@ -37,7 +37,11 @@ export const getDateTime = (dateTime?:string|Date|number|null) => {
     if(typeof dateTime === 'string' || typeof dateTime === 'number'){
         // @ts-ignore
         if(typeof dateTime === 'string' && dateTime == parseFloat(dateTime)){
-            dateTime = parseFloat(dateTime)*1000;
+            //assume it's a unix timestamp with trailing decimals
+            dateTime = parseInt(dateTime)*1000;
+        }else if(typeof dateTime === 'number' && dateTime === Math.round(dateTime)){
+            //assume it's a unix timestamp
+            dateTime = dateTime*1000;
         }
 
         dateTime = new Date(dateTime);

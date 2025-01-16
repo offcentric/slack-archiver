@@ -3,10 +3,10 @@ import {initSlack} from '../providers/slack';
 import {getMessagesForChannel} from '../models/message';
 import * as process from "node:process";
 
-const messagesList = async (workspace:string, channelName?:string, user?:string, latest?:number) => {
+const messagesList = async (workspace:string, channelName?:string, user?:string, latest?:number, limit?:number) => {
 
     await initSlack(workspace);
-    await getMessagesForChannel(workspace, channelName, user, latest);
+    await getMessagesForChannel(workspace, channelName, user, latest, limit);
     process.exit();
 
 }
@@ -16,8 +16,8 @@ if (process.argv.length > 2) {
 
     // parse flags
     if(process.argv.length > 3){
-        const {channel, user, latest} = parseFlags(process.argv);
-        const ret = await messagesList(workspace, channel, user, latest);
+        const {channel, user, latest, limit} = parseFlags(process.argv);
+        const ret = await messagesList(workspace, channel, user, latest, limit);
         console.log(ret);
 
     }else{
