@@ -1,8 +1,8 @@
-import {addedit, getCollection} from "helpers/data";
+import {addedit} from "helpers/data";
 import {getEnvConfig} from "helpers/config";
 import fs  from 'fs';
 import {getDateTime} from "helpers/date";
-import {getFile, getChannelName, getAppToken, getUserToken} from "providers/slack";
+import {getFile, getChannelName, getUserToken} from "providers/slack";
 
 export const saveFiles = async (payload:any, files:Array<any>, workspace) => {
 
