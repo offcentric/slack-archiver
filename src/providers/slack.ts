@@ -2,16 +2,12 @@ import {ConversationsHistoryArguments, ConversationsHistoryResponse, WebClient} 
 import { getEnvConfig } from '../helpers/config';
 import NodeCache from "node-cache";
 import Exception from '../models/exception';
-import {getDateTime} from "helpers/date";
-
-var slack:WebClient;
-
-const cache = new NodeCache();
-
+import * as console from "node:console";
 
 interface Attachment{
     text: string
 }
+
 interface Block{
     type:string,
     text: {type: string, text: string}
@@ -24,110 +20,133 @@ interface MessageContents{
     blocks?: Array<Block>
 }
 
-export const initSlack = async (workspace) => {
-    const appToken = getAppToken(workspace);
-    console.log("LOADED WORKSPACE CONFIG ", workspace, appToken);
-    slack = new WebClient(appToken);
-}
+class SlackProvider {
 
-const getChannelId = async(channelName:string):Promise<string> => {
+    workspace:string;
+    slack:WebClient;
+    cache = new NodeCache();
 
-    const channels = await getChannellist();
-
-    if(!channels[channelName]){
-        throw new Exception('channel_not_found: '+channelName);
+    constructor(workspace:string){
+        this.workspace = workspace;
+        const appToken = this.getAppToken();
+        console.log("LOADED WORKSPACE CONFIG ", workspace, appToken);
+        this.slack = new WebClient(appToken);
+        currentWorkspace = workspace;
     }
-    return channels[channelName];
-}
 
-export const getChannelName = async(channelId:string):Promise<string> => {
+    async getChannelId(channelName:string):Promise<string>{
 
-    const channels = await getChannellist();
-    const channelIds = Object.values(channels);
-    const pos = channelIds.indexOf(channelId);
-
-    if(pos === -1){
-        throw new Exception('channel_not_found');
-    }
-    const ret = Object.keys(channels)[pos];
-    return ret;
-}
-
-export const getChannellist = async() => {
-    let ret: object = cache.get('SLACK_CHANNELS_LIST')
-
-    if(!ret || !Object.keys(ret).length){
-        ret = {};
-        const channelsData = await slack.conversations.list({types:'public_channel,private_channel'});
-        for(const i in channelsData.channels){
-            const channelData = channelsData.channels[i];
-            ret[channelData.name] = channelData.id;
+        const channels = await this.getChannelList();
+        if(!channels[channelName]){
+            throw new Exception('channel_not_found: '+channelName);
         }
-        cache.set('SLACK_CHANNELS_LIST', ret);
-    }
-    return ret;
-}
-
-export const getChannel = async(channelName, user) => {
-    const payload = {channel:null, users:null, return_im:true}
-    if(channelName){
-        payload.channel = await getChannelId(channelName)
-    }
-    if(user){
-        payload.users = user;
-    }
-    return await slack.conversations.open(payload);
-}
-
-export const getUserlist = async() => {
-    const ret = await slack.users.list({});
-    return ret;
-}
-
-export const getMessagesBatch = async (channelName:string, channelId?:string, cursor?, latest?: number, limit?:number): Promise<ConversationsHistoryResponse> => {
-
-    if(!channelId){
-        channelId = await getChannelId(channelName);
+        return channels[channelName];
     }
 
-    const payload:ConversationsHistoryArguments = {channel:channelId, limit:1000}
-    if(latest){
-        payload.latest = (latest) + '';
-        payload.inclusive = true;
+    async getChannelName(channelId:string):Promise<string>{
+
+        const channels = await this.getChannelList();
+        const channelIds = Object.values(channels);
+        const pos = channelIds.indexOf(channelId);
+
+        if(pos === -1){
+            throw new Exception('channel_not_found');
+        }
+        const ret = Object.keys(channels)[pos];
+        return ret;
     }
-    if(limit){
-        payload.limit = limit;
+
+    async getChannelList(){
+        const cKey = 'SLACK_CHANNELS_LIST_'+this.workspace.toUpperCase()
+        let ret: object = this.cache.get(cKey);
+
+        if(!ret || !Object.keys(ret).length){
+            ret = {};
+            const channelsData = await this.slack.conversations.list({types:'public_channel,private_channel'});
+            for(const i in channelsData.channels){
+                const channelData = channelsData.channels[i];
+                ret[channelData.name] = channelData.id;
+            }
+            this.cache.set(cKey, ret);
+        }
+        // console.log("CHANNELS LIST FOR "+this.workspace, ret);
+        return ret;
     }
-    if(cursor){
-        payload.cursor = cursor;
+
+    async getChannel(channelName, user){
+        const payload = {channel:null, users:null, return_im:true}
+        if(channelName){
+            payload.channel = await this.getChannelId(channelName)
+        }
+        if(user){
+            payload.users = user;
+        }
+        return await this.slack.conversations.open(payload);
     }
-    console.log("CALLING slack.conversations.history", payload);
-    const resp = await slack.conversations.history(payload);
-    console.log("CONVERSATIONS", resp.ok, resp.messages.length);
-    return resp;
+
+    async getUserlist(){
+        const ret = await this.slack.users.list({});
+        return ret;
+    }
+
+    async getMessagesBatch (channelName:string, channelId?:string, cursor?, latest?: number, limit?:number): Promise<ConversationsHistoryResponse>{
+
+        if(!channelId){
+            channelId = await this.getChannelId(channelName);
+        }
+
+        const payload:ConversationsHistoryArguments = {channel:channelId, limit:1000}
+        if(latest){
+            payload.latest = (latest) + '';
+            payload.inclusive = true;
+        }
+        if(limit){
+            payload.limit = limit;
+        }
+        if(cursor){
+            payload.cursor = cursor;
+        }
+        console.log("CALLING slack.conversations.history", payload);
+        const resp = await this.slack.conversations.history(payload);
+        console.log("CONVERSATIONS", resp.ok, resp.messages.length);
+        return resp;
+    }
+
+    async getRepliesForMessage(channelName:string, ts:string){
+        const channelId = await this.getChannelId(channelName);
+        console.log("CALLING slack.conversations.replies");
+        const ret:any = await this.slack.conversations.replies({channel:channelId, ts});
+        return ret;
+    }
+
+    async getFile (fileUid   :string){
+        const ret = await this.slack.files.info({file:fileUid});
+        console.log("FILE INFO", ret);
+        return ret;
+    }
+
+    getWebhookToken(){
+        return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+this.workspace.toUpperCase());
+    }
+
+    getAppToken(){
+        return getEnvConfig("SLACK_APP_TOKEN_"+this.workspace.toUpperCase());
+    }
+
+    getUserToken(){
+        return getEnvConfig("SLACK_USER_TOKEN_"+this.workspace.toUpperCase());
+    }
 }
 
-export const getRepliesForMessage = async(channelName:string, ts:string) => {
-    const channelId = await getChannelId(channelName);
-    console.log("CALLING slack.conversations.replies");
-    const ret:any = await slack.conversations.replies({channel:channelId, ts});
-    return ret;
-}
+var currentWorkspace:string, slack:SlackProvider;
 
-export const getFile = async (fileUid   :string) => {
-    const ret = await slack.files.info({file:fileUid});
-    console.log("FILE INFO", ret);
-    return ret;
-}
-
-export const getWebhookToken = (workspace:string) => {
-    return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+workspace.toUpperCase());
-}
-
-export const getAppToken = (workspace) => {
-    return getEnvConfig("SLACK_APP_TOKEN_"+workspace.toUpperCase());
-}
-
-export const getUserToken = (workspace) => {
-    return getEnvConfig("SLACK_USER_TOKEN_"+workspace.toUpperCase());
+export const initSlack = (workspace):SlackProvider => {
+    if(!workspace){
+        throw new Exception('missing_workspace');
+    }
+    if(currentWorkspace !== workspace){
+        slack = new SlackProvider(workspace);
+        currentWorkspace = workspace;
+    }
+    return slack;
 }

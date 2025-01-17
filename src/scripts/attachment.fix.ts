@@ -1,9 +1,7 @@
-import {initSlack } from '../providers/slack';
 import {fixAttachments} from "models/attachment";
 
 const attachmentFix = async (workspace) => {
 
-    await initSlack(workspace);
     await fixAttachments(workspace);
     process.exit();
 

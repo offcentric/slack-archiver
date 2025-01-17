@@ -1,6 +1,6 @@
 import {addedit, get, getBy, hardDeleteItem} from "helpers/data";
 import {getDateTime} from "helpers/date";
-import {getMessagesBatch, getRepliesForMessage} from "providers/slack";
+import {initSlack}  from 'providers/slack';
 import {saveAttachments} from "models/attachment";
 import {saveFiles} from "models/file";
 import {saveBlocks} from "models/block";
@@ -13,8 +13,10 @@ export const getMessagesForChannel = async(workspace, channelName?:string, user?
     let ret = [];
     let resp:any = {messages:[], has_more:true};
     let cursor = null;
+    const slack = initSlack(workspace);
+
     do{
-        resp = await getMessagesBatch(channelName, user, cursor, latest, limit);
+        resp = await slack.getMessagesBatch(channelName, user, cursor, latest, limit);
         console.log("LOADED "+resp.messages.length+" MESSAGES");
         if(!resp.messages.length){
             break;
@@ -33,6 +35,7 @@ export const getMessagesForChannel = async(workspace, channelName?:string, user?
 }
 
 const processMessageBatch = async (resp, channelName, workspace, doSave) => {
+    const slack = initSlack(workspace);
     for (const message of resp.messages) {
 
         // console.log("MESSAGE", message, getDateTime(message.ts));
@@ -46,10 +49,12 @@ const processMessageBatch = async (resp, channelName, workspace, doSave) => {
 
         if(doSave) {
             await saveMessageData(message, workspace, channelName)
+        }else{
+            console.log("MESSAGE LOADED", message);
         }
 
         if(message.reply_count){
-            const replies = await getRepliesForMessage(channelName, message.ts);
+            const replies = await slack.getRepliesForMessage(channelName, message.ts);
             for(let reply of replies.messages) {
                 if(reply.reply_count || !reply.client_msg_id){
                     continue;

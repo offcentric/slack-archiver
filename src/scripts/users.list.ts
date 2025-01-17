@@ -1,9 +1,8 @@
-import {initSlack, getUserlist } from '../providers/slack';
+import {initSlack}  from '../providers/slack';
 
 const usersList = async (workspace) => {
-
-    await initSlack(workspace);
-    const ret = await getUserlist();
+    const slack = initSlack(workspace);
+    const ret = await slack.getUserlist();
     console.log(ret);
     process.exit();
 

@@ -1,12 +1,11 @@
-import {getUserlist, initSlack} from '../providers/slack';
+import {initSlack}  from '../providers/slack';
 import {saveBatch} from "models/user";
 
 const usersSave = async (workspace) => {
 
     console.log("WORKSPACE", workspace);
-    await initSlack(workspace);
-
-    const resp = await getUserlist();
+    const slack = initSlack(workspace);
+    const resp = await slack.getUserlist();
     await saveBatch(resp, workspace);
     process.exit();
 

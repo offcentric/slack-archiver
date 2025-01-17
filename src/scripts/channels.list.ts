@@ -1,9 +1,9 @@
-import {initSlack, getChannellist } from '../providers/slack';
+import {initSlack}  from '../providers/slack';
 
 const channelsList = async (workspace) => {
 
-    await initSlack(workspace);
-    const ret = await getChannellist();
+    const slack = initSlack(workspace);
+    const ret = await slack.getChannelList();
     console.log(ret);
     process.exit();
 

@@ -1,4 +1,4 @@
-import {addedit, getCollection} from "helpers/data";
+import {addedit} from "helpers/data";
 
 export const saveBlocks = async (payload:any, blocks:Array<any>, workspace) => {
     const blockIds = [];

@@ -1,11 +1,9 @@
 import {parseFlags} from "../../dist/helpers/script";
-import {initSlack} from '../providers/slack';
 import {getMessagesForChannel} from '../models/message';
 import * as process from "node:process";
 
 const messagesList = async (workspace:string, channelName?:string, user?:string, latest?:number, limit?:number) => {
-
-    await initSlack(workspace);
+    
     await getMessagesForChannel(workspace, channelName, user, latest, limit);
     process.exit();
 

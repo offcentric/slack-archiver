@@ -1,9 +1,6 @@
-import {initSlack } from '../providers/slack';
 import {getFileByUid} from "models/file";
 
 const fileInfo = async (workspace, fileUid) => {
-
-    await initSlack(workspace);
 
     await getFileByUid(fileUid, workspace);
     process.exit();

@@ -1,6 +1,6 @@
 import {addedit, getBy, getCollection, hardDeleteItem} from "helpers/data";
 import {saveMessageData} from "./message";
-import {getMessagesBatch, initSlack} from "providers/slack";
+import {initSlack}  from 'providers/slack';
 import {saveBlocks} from "models/block";
 
 export const saveAttachments = async (payload:any, attachments:Array<any>, workspace) => {
@@ -33,6 +33,8 @@ export const saveAttachments = async (payload:any, attachments:Array<any>, works
 export const fixAttachments = async(workspace) => {
     const list = await getCollection('attachment', {from_url:null, image_url:null, block_ids:null});
     let currentWorkspace = workspace;
+    let slack = new SlackProvider(currentWorkspace);
+
     for(const attachment of list){
         // console.log("ATTACHMENT", attachment);
         const message = await getBy("message", {ts:{like: attachment.ts+'%'}}, [], false, ['id','ts','channel','workspace']);
@@ -44,10 +46,10 @@ export const fixAttachments = async(workspace) => {
         if(message.workspace && message.workspace !== currentWorkspace){
             currentWorkspace = message.workspace;
             console.log("SWITCHING WORKSPACE", currentWorkspace)
-            initSlack(currentWorkspace);
+            slack = new SlackProvider(currentWorkspace);
         }
 
-        const resp = await getMessagesBatch(message.channel, null, null, message.ts);
+        const resp = await slack.getMessagesBatch(message.channel, null, null, message.ts);
         if(!resp.messages.length){
             continue;
         }

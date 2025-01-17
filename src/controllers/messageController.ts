@@ -1,6 +1,6 @@
 import {returnSuccess, returnError, returnExceptionAsError} from "helpers/response";
 import {saveMessageData} from "models/message";
-import {getChannelName, getWebhookToken, initSlack} from "providers/slack";
+import {initSlack}  from 'providers/slack';
 
 
 export const save = async (req, res) => {
@@ -31,7 +31,9 @@ export const save = async (req, res) => {
             return returnError(res, 'missing_token');
         }
 
-        if(token !== getWebhookToken(workspace)){
+        const slack = initSlack(workspace);
+
+        if(token !== slack.getWebhookToken()){
             return returnError(res, 'token_mismatch');
         }
 
@@ -41,8 +43,7 @@ export const save = async (req, res) => {
             return returnError(res,'missing_channel');
         }
 
-        await initSlack(workspace);
-        const channelName = await getChannelName(channel);
+        const channelName = await slack.getChannelName(channel);
         let message = event;
 
         if(message.subtype && message.subtype === 'message_changed'){

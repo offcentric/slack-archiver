@@ -2,7 +2,7 @@ import {addedit} from "helpers/data";
 import {getEnvConfig} from "helpers/config";
 import fs  from 'fs';
 import {getDateTime} from "helpers/date";
-import {getFile, getChannelName, getUserToken} from "providers/slack";
+import {initSlack}  from 'providers/slack';
 
 export const saveFiles = async (payload:any, files:Array<any>, workspace) => {
 
@@ -25,11 +25,12 @@ export const saveFiles = async (payload:any, files:Array<any>, workspace) => {
 }
 
 export const getFileByUid = async (uid:string, workspace, doSave = false, channelName?) => {
-   const {file} = await getFile(uid);
-   if(doSave){
+    const slack = initSlack(workspace);
+    const {file} = await slack.getFile(uid);
+    if(doSave){
        const channelId = file.channels[0];
        if(!channelName){
-           channelName = await getChannelName(channelId);
+           channelName = await slack.getChannelName(channelId);
        }
        await downloadFile(file, channelName, workspace)
        await saveFile(file, workspace);
@@ -37,7 +38,8 @@ export const getFileByUid = async (uid:string, workspace, doSave = false, channe
 }
 
 const downloadFile = async(file, channelName, workspace) => {
-    const userToken = getUserToken(workspace)
+    const slack = initSlack(workspace);
+    const userToken = slack.getUserToken()
 
     let response;
     const options =  {
