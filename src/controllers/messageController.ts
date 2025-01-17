@@ -5,44 +5,46 @@ import {initSlack}  from 'providers/slack';
 
 export const save = async (req, res) => {
 
+    const body = req.body;
+
     if(!req.body){
         return returnError('no_body')
     }
 
+    if(body.challenge){
+        return returnSuccess(res, body.challenge);
+    }
+
+    const workspace = req.query.workspace;
+
+    if(!workspace){
+        return returnError(res,'missing_workspace');
+    }
+
+    const {event, token} = body;
+
+    if(!event){
+        return returnError(res,'missing_event_data');
+    }
+
+    if(!token){
+        return returnError(res, 'missing_token');
+    }
+
+    const slack = initSlack(workspace);
+
+    if(token !== slack.getWebhookToken()){
+        return returnError(res, 'token_mismatch');
+    }
+
+    // console.log("SLACK MESSAGE", body);
+    const channel = event.channel;
+
+    if(!channel){
+        return returnError(res,'missing_channel');
+    }
+
     try{
-        const body = req.body;
-        if(body.challenge){
-            return returnSuccess(res, body.challenge);
-        }
-
-        const workspace = req.query.workspace;
-
-        if(!workspace){
-            return returnError(res,'missing_workspace');
-        }
-        // console.log("SLACK MESSAGE", body);
-        const {event, token} = body;
-
-        if(!event){
-            return returnError(res,'missing_event_data');
-        }
-
-        if(!token){
-            return returnError(res, 'missing_token');
-        }
-
-        const slack = initSlack(workspace);
-
-        if(token !== slack.getWebhookToken()){
-            return returnError(res, 'token_mismatch');
-        }
-
-        const channel = event.channel;
-
-        if(!channel){
-            return returnError(res,'missing_channel');
-        }
-
         const channelName = await slack.getChannelName(channel);
         let message = event;
 
@@ -53,6 +55,7 @@ export const save = async (req, res) => {
         const ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
         return returnSuccess(res, ret);
     }catch (e){
+        await slack.sendAlert('error_posting_message_to_database: '+e.message);
         return returnExceptionAsError(res,e)
     }
 }

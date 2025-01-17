@@ -25,6 +25,7 @@ class SlackProvider {
     workspace:string;
     slack:WebClient;
     cache = new NodeCache();
+    defaultChannel = getEnvConfig("SLACK_DEFAULT_CHANNEL", 'alerts');
 
     constructor(workspace:string){
         this.workspace = workspace;
@@ -32,6 +33,18 @@ class SlackProvider {
         console.log("LOADED WORKSPACE CONFIG ", workspace, appToken);
         this.slack = new WebClient(appToken);
         currentWorkspace = workspace;
+    }
+
+    getWebhookToken(){
+        return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+this.workspace.toUpperCase());
+    }
+
+    getAppToken(){
+        return getEnvConfig("SLACK_APP_TOKEN_"+this.workspace.toUpperCase());
+    }
+
+    getUserToken(){
+        return getEnvConfig("SLACK_USER_TOKEN_"+this.workspace.toUpperCase());
     }
 
     async getChannelId(channelName:string):Promise<string>{
@@ -125,17 +138,64 @@ class SlackProvider {
         return ret;
     }
 
-    getWebhookToken(){
-        return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+this.workspace.toUpperCase());
+    async sendMessage(message: string, channel?:string, attachment?:any|null, block?:any|null){
+        if(!channel){
+            channel = this.defaultChannel;
+        }
+        const channelId = await this.getChannelId(channel);
+        const payload:MessageContents = {
+            text: `(${getEnvConfig('ENVIRONMENT').toUpperCase()}) ${message}`,
+            channel: channelId,
+            blocks: [],
+            attachments: []
+        };
+
+        if(attachment){
+            if(typeof attachment !== 'string'){
+                attachment = '```'+JSON.stringify(attachment)+'```';
+            }
+            payload.attachments = [{text:attachment}];
+        }
+
+        if(block){
+            if(typeof block !== 'string'){
+                block = JSON.stringify(block);
+            }
+            payload.blocks = [{type:'section', text:{type:'code', text:block}}];
+        }
+
+        const result = await this.slack.chat.postMessage(payload);
+        return result;
     }
 
-    getAppToken(){
-        return getEnvConfig("SLACK_APP_TOKEN_"+this.workspace.toUpperCase());
+    async sendOk(message, channel?:string){
+        if(!channel){
+            channel = 'alerts';
+        }
+        return await this.sendMessage(`:white_check_mark: ${message} :white_check_mark:`, channel);
     }
 
-    getUserToken(){
-        return getEnvConfig("SLACK_USER_TOKEN_"+this.workspace.toUpperCase());
+    async sendAlert(message, channel?:string, attachment?:any|null, block?:any|null){
+        if(!channel){
+            channel = 'alerts';
+        }
+        return await this.sendMessage(`:rotating_light: ${message} :rotating_light:`, channel, attachment, block);
     }
+
+    async sendInfo(message, channel?:string, attachment?:any|null, block?:any|null){
+        if(!channel){
+            channel = 'general';
+        }
+        return await this.sendMessage(`:bulb: ${message} :bulb:`, channel, attachment, block);
+    }
+
+    async sendError(message, channel?:string, attachment?:any|null, block?:any|null){
+        if(!channel){
+            channel = 'alerts';
+        }
+        return await this.sendMessage(`:x: ${message} :x:`, channel, attachment, block);
+    }
+
 }
 
 var currentWorkspace:string, slack:SlackProvider;
