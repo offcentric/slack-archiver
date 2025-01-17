@@ -1,6 +1,7 @@
 import {returnSuccess, returnError, returnExceptionAsError} from "helpers/response";
 import {saveMessageData} from "models/message";
 import {initSlack}  from 'providers/slack';
+import {getEnvConfig} from "helpers/config";
 
 
 export const save = async (req, res) => {
@@ -15,7 +16,7 @@ export const save = async (req, res) => {
         return returnSuccess(res, body.challenge);
     }
 
-    const workspace = req.query.workspace;
+    const workspace:string = req.query.workspace;
 
     if(!workspace){
         return returnError(res,'missing_workspace');
@@ -46,6 +47,10 @@ export const save = async (req, res) => {
 
     try{
         const channelName = await slack.getChannelName(channel);
+        if(getEnvConfig('SLACK_IGNORED_CHANNELS_'+workspace.toUpperCase(), []).includes(channelName)){
+            return returnError(res,'channel_on_ignore_list: '+channelName);
+        }
+
         let message = event;
 
         if(message.subtype && message.subtype === 'message_changed'){
