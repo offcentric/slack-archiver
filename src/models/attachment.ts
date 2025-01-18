@@ -33,7 +33,7 @@ export const saveAttachments = async (payload:any, attachments:Array<any>, works
 export const fixAttachments = async(workspace) => {
     const list = await getCollection('attachment', {from_url:null, image_url:null, block_ids:null});
     let currentWorkspace = workspace;
-    let slack = new SlackProvider(currentWorkspace);
+    let slack = initSlack(currentWorkspace);
 
     for(const attachment of list){
         // console.log("ATTACHMENT", attachment);
@@ -46,7 +46,7 @@ export const fixAttachments = async(workspace) => {
         if(message.workspace && message.workspace !== currentWorkspace){
             currentWorkspace = message.workspace;
             console.log("SWITCHING WORKSPACE", currentWorkspace)
-            slack = new SlackProvider(currentWorkspace);
+            slack = initSlack(currentWorkspace);
         }
 
         const resp = await slack.getMessagesBatch(message.channel, null, null, message.ts);

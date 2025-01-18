@@ -10,6 +10,7 @@ export const returnSuccess = (res, successMsg:Record<string, any> = successMessa
     if(codes.indexOf(code) != -1){ // ensure the code is valid in http schema
         code = status.success;
     }
+    console.log(successMsg);
     return doResponse ? res.status(code).send(successMsg) : successMsg;
 }
 
@@ -19,11 +20,12 @@ export const returnError = (res, message:string = errorMessage.message, code:num
     if(codes.indexOf(code) === -1){ // ensure the code is valid in http schema
         code = status.error;
     }
+    console.error(errMsg)
     return doResponse ? res.status(code).json(errMsg) : errMsg;
 }
 
 export const returnExceptionAsError = (res, e:Exception, doResponse = true) => {
-    console.log("ERROR",e);
+    console.error("ERROR",e);
     let errMsg = {}
     let code = 500;
     errMsg = {...errorMessage};
