@@ -1,8 +1,8 @@
 import {returnSuccess, returnError, returnExceptionAsError} from "helpers/response";
 import {saveMessageData} from "models/message";
+import {saveUser} from "models/user";
 import {initSlack}  from 'providers/slack';
 import {getEnvConfig} from "helpers/config";
-
 
 export const process = async (req, res) => {
 
@@ -51,13 +51,27 @@ export const process = async (req, res) => {
             return returnError(res,'channel_on_ignore_list: '+channelName);
         }
 
-        let message = event;
+        const eventType = event.type;
 
-        if(message.subtype && message.subtype === 'message_changed'){
-            message = event.message;
-            message.ts = event.previous_message.ts;
+        if(!['message','team_join','channel_created','channel_rename','channel_archive','channel_unarchive','channel_deleted','group_rename','group_archive','group_unarchive','group_deleted'].includes(eventType)){
+            return returnError(res,'invalid_event_type: '+eventType);
         }
-        const ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
+
+        var ret;
+
+        if(eventType === 'message'){
+            let message = event;
+            if(message.subtype && message.subtype === 'message_changed'){
+                message = event.message;
+                message.ts = event.previous_message.ts;
+            }
+            ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
+        }else if(eventType === 'team_join'){
+            const user = event.user;
+            ret = await saveUser(user, workspace)
+        }else if(['channel_created','channel_deleted','group_deleted','channel_rename','group_rename','channel_archive','group_archive','channel_unarchive','group_unarchive'].includes(eventType) || await slack.privateChannelCreated(event)){
+            slack.refeshChannelList();
+        }
         return returnSuccess(res, ret);
     }catch (e){
         await slack.sendAlert('error_posting_message_to_database: '+e.message);

@@ -26,6 +26,7 @@ class SlackProvider {
     slack:WebClient;
     cache = new NodeCache();
     defaultChannel = getEnvConfig("SLACK_DEFAULT_CHANNEL", 'alerts');
+    channelListCacheKey:string;
 
     constructor(workspace:string){
         this.workspace = workspace;
@@ -33,6 +34,7 @@ class SlackProvider {
         console.log("LOADED WORKSPACE CONFIG ", workspace, appToken);
         this.slack = new WebClient(appToken);
         currentWorkspace = workspace;
+        this.channelListCacheKey = 'SLACK_CHANNELS_LIST_'+this.workspace.toUpperCase()
     }
 
     getWebhookToken(){
@@ -70,8 +72,8 @@ class SlackProvider {
     }
 
     async getChannelList(){
-        const cKey = 'SLACK_CHANNELS_LIST_'+this.workspace.toUpperCase()
-        let ret: object = this.cache.get(cKey);
+
+        let ret: object = this.cache.get(this.channelListCacheKey);
 
         if(!ret || !Object.keys(ret).length){
             ret = {};
@@ -80,10 +82,14 @@ class SlackProvider {
                 const channelData = channelsData.channels[i];
                 ret[channelData.name] = channelData.id;
             }
-            this.cache.set(cKey, ret);
+            this.cache.set(this.channelListCacheKey, ret);
         }
         // console.log("CHANNELS LIST FOR "+this.workspace, ret);
         return ret;
+    }
+
+    refeshChannelList(){
+        this.cache.del(this.channelListCacheKey);
     }
 
     async getChannel(channelName, user){
@@ -95,6 +101,18 @@ class SlackProvider {
             payload.users = user;
         }
         return await this.slack.conversations.open(payload);
+    }
+
+    async privateChannelCreated(event){
+        // there is no real great way to capture a private group being created (group_open doesn't actually work) so we have to make assumptions.
+        if(event.type === 'message' && event.subtype === 'channel_join' && event.channel_type === 'group'){
+            const channelList = await this.getChannelList();
+            const channelIds = Object.values(channelList);
+            if(!channelIds.includes(event.channel)){
+                return true;
+            }
+        }
+        return false;
     }
 
     async getUserlist(){
