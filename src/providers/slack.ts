@@ -90,6 +90,7 @@ class SlackProvider {
 
     refeshChannelList(){
         this.cache.del(this.channelListCacheKey);
+        return this.workspace+' channel_list_cache_flushed';
     }
 
     async getChannel(channelName, user){

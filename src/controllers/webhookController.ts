@@ -71,9 +71,9 @@ export const process = async (req, res) => {
             ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
         }else if(eventType === 'team_join'){
             const user = event.user;
-            ret = await saveUser(user, workspace)
+            ret = {id: await saveUser(user, workspace)}
         }else if(['channel_created','channel_deleted','group_deleted','channel_rename','group_rename','channel_archive','group_archive','channel_unarchive','group_unarchive'].includes(eventType) || await slack.privateChannelCreated(event)){
-            slack.refeshChannelList();
+            ret = slack.refeshChannelList();
         }
         return returnSuccess(res, ret);
     }catch (e){
