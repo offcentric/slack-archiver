@@ -1,4 +1,4 @@
-import {parseFlags} from "../../dist/helpers/script";
+import {parseFlags} from "helpers/script";
 import {getMessagesForChannel} from "models/message";
 import process from "node:process";
 
