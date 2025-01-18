@@ -30,19 +30,19 @@ class SlackProvider {
 
     constructor(workspace:string){
         this.workspace = workspace;
-        const appToken = this.getAppToken();
-        console.log("LOADED WORKSPACE CONFIG ", workspace, appToken);
-        this.slack = new WebClient(appToken);
+        const botToken = this.getBotToken();
+        console.log("LOADED WORKSPACE CONFIG ", workspace, botToken);
+        this.slack = new WebClient(botToken);
         currentWorkspace = workspace;
         this.channelListCacheKey = 'SLACK_CHANNELS_LIST_'+this.workspace.toUpperCase()
     }
 
     getWebhookToken(){
-        return getEnvConfig('SLACK_WEBHOOK_TOKEN_'+this.workspace.toUpperCase());
+        return getEnvConfig('SLACK_VERIFICATION_TOKEN_'+this.workspace.toUpperCase());
     }
 
-    getAppToken(){
-        return getEnvConfig("SLACK_APP_TOKEN_"+this.workspace.toUpperCase());
+    getBotToken(){
+        return getEnvConfig("SLACK_BOT_TOKEN_"+this.workspace.toUpperCase());
     }
 
     getUserToken(){

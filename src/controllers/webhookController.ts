@@ -78,7 +78,7 @@ export const process = async (req, res) => {
         }
         return returnSuccess(res, ret);
     }catch (e){
-        await slack.sendAlert('error_posting_message_to_database: '+e.message);
+        await slack.sendAlert('error_posting_message_to_database: '+e.message, getEnvConfig('SLACK_ALERTS_CHANNEL', 'alerts'));
         return returnExceptionAsError(res,e)
     }
 }
