@@ -144,7 +144,7 @@ class SlackProvider {
         }
         const channelId = await this.getChannelId(channel);
         const payload:MessageContents = {
-            text: `(${getEnvConfig('ENVIRONMENT').toUpperCase()}) ${message}`,
+            text: message,
             channel: channelId,
             blocks: [],
             attachments: []
