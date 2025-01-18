@@ -88,8 +88,9 @@ class SlackProvider {
         return ret;
     }
 
-    refeshChannelList(){
+    async refeshChannelList(){
         this.cache.del(this.channelListCacheKey);
+        console.log("CHANNEL LIST", await this.getChannelList());
         return this.workspace+' channel_list_cache_flushed';
     }
 
