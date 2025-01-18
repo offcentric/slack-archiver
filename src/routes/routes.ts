@@ -1,9 +1,9 @@
 import express from 'express';
 
-import {save, test} from '../controllers/messageController';
+import {process, test} from '../controllers/webhookController';
 const router = express.Router({mergeParams: true});
 
-router.post('/saveMessage', save);
+router.post('/webhook', process);
 router.get('/test', test);
 
 export default router;

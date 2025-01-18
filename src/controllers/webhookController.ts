@@ -4,7 +4,7 @@ import {initSlack}  from 'providers/slack';
 import {getEnvConfig} from "helpers/config";
 
 
-export const save = async (req, res) => {
+export const process = async (req, res) => {
 
     const body = req.body;
 
