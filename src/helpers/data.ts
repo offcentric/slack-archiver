@@ -1,4 +1,4 @@
-import {db} from '../db/knex-pg';
+import {db} from '../db/knex';
 import {errorMessage, status} from '../helpers/status';
 import {set as setCache, get as getCache, del as deleteCache, getCacheKey} from '../helpers/cache';
 import Exception from '../models/exception';
