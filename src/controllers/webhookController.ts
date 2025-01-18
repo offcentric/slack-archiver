@@ -41,13 +41,6 @@ export const process = async (req, res) => {
         return returnError(res, 'token_mismatch');
     }
 
-    // console.log("SLACK MESSAGE", body);
-    const channel = event.channel;
-
-    if(!channel){
-        return returnError(res,'missing_channel');
-    }
-
     try{
         const eventType = event.type;
 
@@ -62,6 +55,13 @@ export const process = async (req, res) => {
             if(message.subtype && message.subtype === 'message_changed'){
                 message = event.message;
                 message.ts = event.previous_message.ts;
+            }
+
+            // console.log("SLACK MESSAGE", body);
+            const channel = event.channel;
+
+            if(!channel){
+                return returnError(res,'missing_channel');
             }
 
             const channelName = await slack.getChannelName(channel);
