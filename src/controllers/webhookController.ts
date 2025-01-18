@@ -57,7 +57,7 @@ export const process = async (req, res) => {
 
         var ret;
 
-        if(eventType === 'message'){
+        if(eventType === 'message' && event.subtype !== 'channel_name'){
             let message = event;
             if(message.subtype && message.subtype === 'message_changed'){
                 message = event.message;
