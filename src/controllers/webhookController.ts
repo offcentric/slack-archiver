@@ -8,6 +8,9 @@ export const process = async (req, res) => {
 
     const body = req.body;
 
+    // console.log("SLACK MESSAGE", body);
+    // console.log("SLACK MESSAGE RAW", JSON.stringify(body));
+
     if(!req.body){
         return returnError('no_body')
     }
