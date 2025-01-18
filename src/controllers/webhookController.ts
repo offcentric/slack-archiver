@@ -49,11 +49,6 @@ export const process = async (req, res) => {
     }
 
     try{
-        const channelName = await slack.getChannelName(channel);
-        if(getEnvConfig('SLACK_IGNORED_CHANNELS_'+workspace.toUpperCase(), []).includes(channelName)){
-            return returnError(res,'channel_on_ignore_list: '+channelName);
-        }
-
         const eventType = event.type;
 
         if(!['message','team_join','channel_created','channel_rename','channel_archive','channel_unarchive','channel_deleted','group_rename','group_archive','group_unarchive','group_deleted'].includes(eventType)){
@@ -68,6 +63,12 @@ export const process = async (req, res) => {
                 message = event.message;
                 message.ts = event.previous_message.ts;
             }
+
+            const channelName = await slack.getChannelName(channel);
+            if(getEnvConfig('SLACK_IGNORED_CHANNELS_'+workspace.toUpperCase(), []).includes(channelName)){
+                return returnError(res,'channel_on_ignore_list: '+channelName);
+            }
+
             ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
         }else if(eventType === 'team_join'){
             const user = event.user;
