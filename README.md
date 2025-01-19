@@ -14,6 +14,13 @@ If you come across any inaccuracies with these installation steps, reach out to 
 - Postgres 14.13
 - Slack user account with Admin role
 
+## Why? What about Slack's built-in export tool?
+There is that, but it's quite simplistic and limited. 
+- It only exports on demand, will not run in the background and keep archiving for every message posted moving forward
+- No possibility to filter out channels
+- It outputs JSON straight from Slack API which then requires translation into a more readable and queryable format
+- It doesn't download the actual files (just provides the URLs for download links)
+
 ## Disclaimer
 
 By using this software, you assume all liabilities regarding any possible violations of GDPR or other data privacy mandates that your implementation of this software might create. You are responsible to obtain full consent from all the parties that would be affected, as well as properly securing and restricting access to the database. Use this software entirely at your own risk.
