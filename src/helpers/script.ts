@@ -1,9 +1,9 @@
 import process from "node:process";
 
 export const parseFlags = (args) => {
-    const flagsArr = args.slice(2);
+    const flagsArr = args.slice(4);
     const allowedFlags = ['-latest','-limit'];
-    let channel, user, latest, limit = null;
+    let latest, limit = null;
 
     for(let i=0; i <flagsArr.length; i++){
         const flagName = flagsArr[i];
@@ -28,6 +28,6 @@ export const parseFlags = (args) => {
             process.exit(1);
         }
     }
-    const ret = {channel, user, latest, limit};
+    const ret = {latest, limit};
     return ret;
 }

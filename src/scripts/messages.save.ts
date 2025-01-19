@@ -13,12 +13,10 @@ if (process.argv.length > 2) {
     const workspace = process.argv[2];
     if(process.argv.length > 3){
         const channel = process.argv[3];
-        if(process.argv.length > 4) {
-            // parse flags
-            const {latest, limit} = parseFlags(process.argv);
-            const ret = await messagesSave(workspace, channel, latest, limit);
-            console.log(ret);
-        }
+        // parse flags
+        const {latest, limit} = parseFlags(process.argv);
+        const ret = await messagesSave(workspace, channel, latest, limit);
+        console.log(ret);
     }else{
         console.error('Missing channel');
         process.exit(1);
