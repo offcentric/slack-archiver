@@ -54,16 +54,16 @@ By using this software, you assume all liabilities regarding any possible violat
    ````
 
 ### Slack App set up
-1. Log into Slack, go to https://api.slack.com/apps/
-2. Click "Create New App" button, select "From scratch"
-3. Enter "Archiver" as App Name, and select the workspace to which you want to add the app
+1. Log into Slack, go to https://api.slack.com/apps/.
+2. Click "Create New App" button, select "From scratch".
+3. Enter "Archiver" as App Name, and select the workspace to which you want to add the app.
 4. Click Create App button.
 
 #### Basic information
-5. You will start out in the *Settings -> Basic Information* page. On that page you will see the Verification Token. Copy the value of that token, and add to your `.env` file for `SLACK_VERIFICATION_TOKEN_YOURWORKSPACE`.
-6. Scroll down to Display Information, enter a Short description (whatever you want, but I'd advise to use the first sentence of this README file)
-7. (Optional) Add an Icon for your app and choose a Background color
-8. Click **Save Changes** at the bottom of the page
+5. You will start out in the *Settings -> Basic Information* page. On that page you will see the Verification Token. Copy the value of that token, and add to your `.env` file as the value for `SLACK_VERIFICATION_TOKEN_YOURWORKSPACE`.
+6. Scroll down to *Display Information*, enter a Short Description (whatever you want, e.g. "Archive all Slack messages to an external database").
+7. (Optional) Add an Icon for your app and choose a Background color.
+8. Click **Save Changes** at the bottom of the page.
 
 #### OAuth & Permissions
 9. Go to the *Features -> OAuth & Permissions* page, scroll down to the Scopes section. Add the following scopes:
@@ -85,8 +85,8 @@ By using this software, you assume all liabilities regarding any possible violat
       - users:read
 
 #### Event Subscriptions
-10. Go to *Features -> Event Subscriptions* page. Click the switch to Enable Events
-11. For Request URL, enter `https://yourserveraddress.net/webhook?workspace=yourworkspacename` substituting with your actual URL and workspace name. Immediately Slack will verify the URL is working
+10. Go to *Features -> Event Subscriptions* page. Click the switch to Enable Events.
+11. For Request URL, enter `https://yourserveraddress.net/webhook?workspace=yourworkspacename` substituting with your actual URL and workspace name. Immediately Slack will verify the URL is working.
 12. Expand the *Subscribe to events on behalf of users* panel. There, add the following events:
     - channel_archive 
     - channel_created
