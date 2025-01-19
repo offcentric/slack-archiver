@@ -28,9 +28,10 @@ By using this software, you assume all liabilities regarding any possible violat
    
 2. In your Postgres create database called `slack_archive`
 3. Duplicate `.env-template` file in the root folder and rename to `.env` 
-4. In `.env` adjust value of `PORT` to what port you want to run the Node server
-5. In `.env` adjust database connection string at `DATABASE_URL` to work for your server
-6. In `.env` adjust value of `MAX_DOWNLOAD_FILE_SIZE_KB` to your preference. Files larger that this value will not be downloaded to your server's file system (however will still be added to the `file` database table)
+4. In `.env`
+   - adjust value of `PORT` to what port you want to run the Node server
+   - adjust database connection string at `DATABASE_URL` to work for your server 
+   - adjust value of `MAX_DOWNLOAD_FILE_SIZE_KB` to your preference. Files larger that this value will not be downloaded to your server's file system (however will still be added to the `file` database table)
 7. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
 8. Choose one of the `ecosystem.config.*.cjs` files:  
    - `development` will run node using `tsx watch` against the `src` folder, auto restarting on file changes. Handy for development and debugging.
