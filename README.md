@@ -117,9 +117,9 @@ Now that your Slack app is installed, you can finish setting all the required en
 
 ### Slack Bot set up
 1. In your Slack, refresh the main window. You should now see the *Archiver* bot listed under the list of Apps, at the bottom left.
-2. You need to manually add the bot to each channel that you want to have archived. You do this with the `/add` command in each channel. **This step is only needed for retroactive archiving.** For real-time archiving, the bot will by default archive all public and private channels.*
+2. **This step is only needed for retroactive archiving.** Add the bot to each channel that you want to have archived. You do this with the `/add` command in each channel.  This is not needed for real-time archiving, since the bot will by default archive all public and private channels.*
 
-***IMPORTANT:** Direct messages are NEVER archived, for hopefully obvious reasons
+***IMPORTANT:** Direct messages are never archived, for hopefully obvious reasons.
 
 ## Retroactive Archiving
 
