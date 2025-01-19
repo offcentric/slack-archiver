@@ -37,17 +37,18 @@ By using this software, you assume all liabilities regarding any possible violat
    - `development` will run node using `tsx watch` against the `src` folder, auto restarting on file changes. Handy for development and debugging.
    - `production` will run the compiled Javascript in `dist` folder. More performant.
    - In your chosen ecosystem file, adjust the value of `port` to the port of your Node instance.
-   - If using the production config, run
+7. If using the production config, run
    ```` 
    npm run build
    ```` 
-   - Start the server with  
+8. Start the server with  
    ````
    pm2 load ecosystem.config.[production|development].cjs
    ````
-   - Run `pm2 log` to make sure the server is running with no errors.
-   - Test by calling *https://yourseveraddress.net/test*
-7. Run  
+   Run `pm2 log` to make sure the server is running with no errors.  
+   Test the API by calling *https://yourseveraddress.net/test*  
+
+9. Run  
    ````
    npm run migrate
    ````
