@@ -33,32 +33,40 @@ By using this software, you assume all liabilities regarding any possible violat
    npm install
    ````  
    
-2. In your Postgres create database called `slack_archive`
-3. Duplicate `.env-template` file in the root folder and rename to `.env` 
-4. In `.env`
-   - adjust value of `PORT` to what port you want to run the Node server
-   - adjust database connection string at `DATABASE_URL` to work for your server 
-   - adjust value of `MAX_DOWNLOAD_FILE_SIZE_KB` to your preference. Files larger that this value will not be downloaded to your server's file system (however will still be added to the `file` database table)
-5. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
-6. Choose one of the `ecosystem.config.*.cjs` files:  
+2. In your Postgres create database called `slack_archive` 
+3. Choose one of the `ecosystem.config.*.cjs` files:  
    - `development` will run node using `tsx watch` against the `src` folder, auto restarting on file changes. Handy for development and debugging.
    - `production` will run the compiled Javascript in `dist` folder. More performant.
    - In your chosen ecosystem file, adjust the value of `port` to the port of your Node instance.
-7. If using the production config, run
+4. If using the production config, run
    ```` 
    npm run build
    ```` 
-8. Start the server with  
+5. Start the server with  
    ````
    pm2 load ecosystem.config.[production|development].cjs
    ````
    Run `pm2 log` to make sure the server is running with no errors.  
    Test the API by calling *https://yourseveraddress.net/test*  
 
-9. Run  
+6. Run  
    ````
    npm run migrate
    ````
+
+###  Initial Configuration
+1. Duplicate `.env-template` file in the root folder and rename to `.env`
+
+In your `.env` file:
+2. Adjust value of `PORT` to what port you want to run the Node server
+3. Adjust database connection string at `DATABASE_URL` to work for your server
+4. Adjust value of `MAX_DOWNLOAD_FILE_SIZE_KB` to your preference. Files larger that this value will not be downloaded to your server's file system, however will still be added to the `file` database table (defaults to 100000KB / 100MB)
+5. Adjust value of `FILES_DOWNLOAD_DIRECTORY` to where on your server filesystem you want the files to be downloaded (defaults to `files` folder inside the app root directory)
+
+###  Workspace-specific Configuration
+1. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
+2. For `SLACK_IGNORED_CHANNELS_YOURWORKSPACE`, you can add a comma-separated list of channels in your workspace you never want to archive.
+3. For `SLACK_ALERTS_CHANNEL_YOURWORKSPACE`, enter the name of a channel where you want to generate alert and error messages, in the case of the server encountering an error while archiving (defaults to `alerts`).
 
 ### Slack App set up
 1. Log into Slack, then go to https://api.slack.com/apps/.
@@ -112,15 +120,11 @@ By using this software, you assume all liabilities regarding any possible violat
 13. Click **Save Changes** button at the bottom of the page.
 14. Finally, go to  *Settings -> Install App* page, and there click the **Install to {yourworkspace}** button. Your Slack app is now ready.
 
-## Finish Configuration
+### Finish Configuration
 Now that your Slack app is installed, you can finish setting all the required environment variables inside your `.env` file.
-1. While still at the *Settings -> Install App* page, copy over the following values:  
+While still at the *Settings -> Install App* page, copy over the following values:  
    - **User OAuth Token** as `SLACK_USER_TOKEN_YOURWORKSPACE`    
    - **Bot User OAuth Token** as `SLACK_BOT_TOKEN_YOURWORKSPACE`  
-      
-  
-2. (Optional) For `SLACK_IGNORED_CHANNELS_YOURWORKSPACE`, you can add a comma-separated list of channels you never want to archive. 
-3. For `SLACK_ALERTS_CHANNEL_YOURWORKSPACE` enter the name of a channel where you want to generate alert and error messages, in the case of the server encountering an error while archiving. 
 
 ### Slack Bot set up
 1. In your Slack, refresh the main window. You should now see the *Archiver* bot listed under the list of Apps, at the bottom left.
@@ -183,6 +187,10 @@ npm run listChannels -- [workspace]
 There are a few other utility scripts available as well, go to the script inside `package.json` to see them all. 
 
 ---
+
+## Multiple Workspaces
+
+You can archive any number of workspaces using the one instance. To do this, simply repeat all the steps starting from **Workspace-specific Configuration** and downwards. 
 
 ## Goals
 

@@ -84,14 +84,15 @@ const downloadFile = async(file, channelName, workspace) => {
     const arrayBuffer = await blob.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const fileName = file.title.replace(/^https?:\/\//, '').replaceAll('/','-')+'--'+file.id+'.'+file.filetype;
+    const downloadDir = getEnvConfig('FILES_DOWNLOAD_DIRECTORY', 'files') + '/' + workspace;
 
-    if(!fs.existsSync('files/'+workspace)){
-        fs.mkdirSync('files/'+workspace);
+    if(!fs.existsSync(downloadDir)){
+        fs.mkdirSync(downloadDir);
     }
-    if(!fs.existsSync('files/'+workspace+'/'+channelName)){
-        fs.mkdirSync('files/'+workspace+'/'+channelName);
+    if(!fs.existsSync(downloadDir+'/'+channelName)){
+        fs.mkdirSync(downloadDir+'/'+channelName);
     }
-    file.savepath = 'files/'+workspace+'/'+channelName+'/'+fileName;
+    file.savepath = downloadDir+'/'+channelName+'/'+fileName;
     // console.log("DOWNLOAD FILE", file);
     fs.writeFileSync(file.savepath, buffer);
 }
