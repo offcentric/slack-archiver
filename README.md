@@ -23,7 +23,8 @@ By using this software, you assume all liabilities regarding any possible violat
 ### Server set up
 1. Run  
     ````
-   npm install  
+   npm install
+   ````  
    
 2. In your Postgres create database called `slack_archive`
 3. Duplicate `.env-template` file in the root folder and rename to `.env` 
@@ -48,6 +49,7 @@ By using this software, you assume all liabilities regarding any possible violat
 8. Run  
    ````
    npm run migrate
+   ````
 
 ### Slack App set up
 1. Log into Slack, go to https://api.slack.com/apps/
