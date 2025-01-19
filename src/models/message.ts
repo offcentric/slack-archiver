@@ -8,7 +8,7 @@ import Exception from "models/exception";
 
 var messageCount = 0
 
-export const getMessagesForChannel = async(workspace, channelName?:string, user?:string, latest?:number, limit?:number, doSave = false) => {
+export const getMessagesForChannel = async(workspace, channelName?:string, latest?:number, limit?:number, doSave = false) => {
 
     let ret = [];
     let resp:any = {messages:[], has_more:true};
@@ -16,7 +16,7 @@ export const getMessagesForChannel = async(workspace, channelName?:string, user?
     const slack = initSlack(workspace);
 
     do{
-        resp = await slack.getMessagesBatch(channelName, user, cursor, latest, limit);
+        resp = await slack.getMessagesBatch(channelName, cursor, latest, limit);
         console.log("LOADED "+resp.messages.length+" MESSAGES");
         if(!resp.messages.length){
             break;

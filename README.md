@@ -11,7 +11,11 @@ This will run a Node server using PM2 process manager. Feel free to run it direc
 - NVM v10.9.0
 - Postgres 14.13
 - Slack user account with Admin role
-- 
+
+## Disclaimer
+
+By using this software, you assume all liabilities regarding any possible violations of GDPR or other data privacy mandates that your implementation of this software might create. You are responsible to obtain full consent from all the parties that would be affected, as well as properly securing and restricting access to the database. Use this software entirely at your own risk.
+
 ---
 ## Installation
 ### Server set up
@@ -25,7 +29,7 @@ This will run a Node server using PM2 process manager. Feel free to run it direc
 5. In `.env` adjust database connection string at `DATABASE_URL` to work for your server
 6. In `.env` adjust value of `MAX_DOWNLOAD_FILE_SIZE_KB` to your preference. Files larger that this value will not be downloaded to your server's file system (however will still be added to the `file` database table)
 7. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
-7. Choose one of the `ecosystem.config.*.cjs` files:  
+8. Choose one of the `ecosystem.config.*.cjs` files:  
    - `development` will run node using `tsx watch` against the `src` folder, auto restarting on file changes. Handy for development and debugging.
    - `production` will run the compiled Javascript in `dist` folder. More performant.
    - In your chosen ecosystem file, adjust the value of `port` to the port of your Node instance.
@@ -33,7 +37,10 @@ This will run a Node server using PM2 process manager. Feel free to run it direc
    ```` 
    npm run build
    ```` 
-   - Start the server with `pm2 reload ecosystem.config.[production|environment].cjs`
+   - Start the server with  
+   ````
+   pm2 load ecosystem.config.[production|development].cjs
+   ````
    - Run `pm2 log` to make sure the server is running with no errors.
    - Test by calling *https://yourseveraddress.net/test*
 8. Run  
@@ -41,19 +48,19 @@ This will run a Node server using PM2 process manager. Feel free to run it direc
    npm run migrate
 
 ### Slack App set up
-8. Log into Slack, go to https://api.slack.com/apps/
-9. Click "Create New App" button, select "From scratch"
-10. Enter "Archiver" as App Name, and select the workspace to which you want to add the app
-11. Click Create App button.
+1. Log into Slack, go to https://api.slack.com/apps/
+2. Click "Create New App" button, select "From scratch"
+3. Enter "Archiver" as App Name, and select the workspace to which you want to add the app
+4. Click Create App button.
 
 #### Basic information
-12. You will start out in the *Settings -> Basic Information* page. On that page you will see the Verification Token. Copy the value of that token, and add to your `.env` file for `SLACK_VERIFICATION_TOKEN_YOURWORKSPACE`.
-13. Scroll down to Display Information, enter a Short description (whatever you want, but I'd advise to use the first sentence of this README file)
-14. (Optional) Add an Icon for your app and choose a Background color
-15. Click **Save Changes** at the bottom of the page
+5. You will start out in the *Settings -> Basic Information* page. On that page you will see the Verification Token. Copy the value of that token, and add to your `.env` file for `SLACK_VERIFICATION_TOKEN_YOURWORKSPACE`.
+6. Scroll down to Display Information, enter a Short description (whatever you want, but I'd advise to use the first sentence of this README file)
+7. (Optional) Add an Icon for your app and choose a Background color
+8. Click **Save Changes** at the bottom of the page
 
 #### OAuth & Permissions
-16. Go to the *Features -> OAuth & Permissions* page, scroll down to the Scopes section. Add the following scopes:
+9. Go to the *Features -> OAuth & Permissions* page, scroll down to the Scopes section. Add the following scopes:
    - For **Bot Token Scopes**:
      - channels:history
      - channels:read
@@ -72,9 +79,9 @@ This will run a Node server using PM2 process manager. Feel free to run it direc
       - users:read
 
 #### Event Subscriptions
-17. Go to *Features -> Event Subscriptions* page. Click the switch to Enable Events
-18. For Request URL, enter `https://yourserveraddress.net/webhook?workspace=yourworkspacename` substituting with your actual URL and workspace name. Immediately Slack will verify the URL is working
-19. Expand the *Subscribe to events on behalf of users* panel. There, add the following events:
+10. Go to *Features -> Event Subscriptions* page. Click the switch to Enable Events
+11. For Request URL, enter `https://yourserveraddress.net/webhook?workspace=yourworkspacename` substituting with your actual URL and workspace name. Immediately Slack will verify the URL is working
+12. Expand the *Subscribe to events on behalf of users* panel. There, add the following events:
     - channel_archive 
     - channel_created
     - channel_deleted
@@ -89,30 +96,83 @@ This will run a Node server using PM2 process manager. Feel free to run it direc
     - message.groups
     - groups:history
     - team_join
-20. Click **Save Changes** button at the bottom of the page.
-21. Finally, go to  *Settings -> Install App* page, and there click the **Install to {yourworkspace}** button. Your Slack app is now ready.
+13. Click **Save Changes** button at the bottom of the page.
+14. Finally, go to  *Settings -> Install App* page, and there click the **Install to {yourworkspace}** button. Your Slack app is now ready.
 
 ## Finish Configuration
-22. Now that your Slack app is installed, you can finish setting all the required environment variables inside your `.env` file.
-While still at the *Settings -> Install App* page, copy over the following values:  
+Now that your Slack app is installed, you can finish setting all the required environment variables inside your `.env` file.
+1. While still at the *Settings -> Install App* page, copy over the following values:  
    - **User OAuth Token** as `SLACK_USER_TOKEN_YOURWORKSPACE`    
    - **Bot User OAuth Token** as `SLACK_VERIFICATION_TOKEN_YOURWORKSPACE`  
       
   
-23. (Optional) For `SLACK_IGNORED_CHANNELS_YOURWORKSPACE`, you can add a comma-separated list of channels you never want to archive. 
-24. For `SLACK_ALERTS_CHANNEL_YOURWORKSPACE` enter the name of a channel where you want to generate alert and error messages, in the case of the server encountering an error while archiving. 
+2. (Optional) For `SLACK_IGNORED_CHANNELS_YOURWORKSPACE`, you can add a comma-separated list of channels you never want to archive. 
+3. For `SLACK_ALERTS_CHANNEL_YOURWORKSPACE` enter the name of a channel where you want to generate alert and error messages, in the case of the server encountering an error while archiving. 
 
 ### Slack Bot set up
-25. In your Slack, refresh the main window. You should now see the *Archiver* bot listed under the list of Apps, at the bottom left.
-26. You need to manually add the bot to each channel that you want to have archived. You do this with the `/add` command in each channel.   
-This step is only needed for retroactive archiving. For real-time archiving, the bot will by default archive all public and private channels*
+1. In your Slack, refresh the main window. You should now see the *Archiver* bot listed under the list of Apps, at the bottom left.
+2. You need to manually add the bot to each channel that you want to have archived. You do this with the `/add` command in each channel. **This step is only needed for retroactive archiving.** For real-time archiving, the bot will by default archive all public and private channels.*
+
+***IMPORTANT:** Direct messages are NEVER archived, for hopefully obvious reasons
 
 ## Retroactive Archiving
 
-27. In order to archive all past messages, you need to run an NPM script. This script will archive 1 channel at a time, so will need to be called once for every channel you want to add to the archive  
-Usage: `npm run saveMessages -- [yourworkspace] [--channel|--user]`
+In order to archive all past messages, you need to run an NPM script. This script will archive 1 channel at a time, so will need to be called once for every channel you want to add to the archive.  
+Usage:  
+````
+npm run saveMessages -- [workspace] [channelname] [[-limit]] [[-latest]] 
+````
+Where `workspace` is the name of your workspace and `channelName` is the name of the channel. The optional flags `-limit` and `-latest` allow archiving for a slice of your history (archiving always happens in reverse chronological order). `-limit` specifies the number of records you want to archive, and `-latest` accepts a Slack-style timestamp (which consists of regular Unix timestamp + a decimal point followed by a 6-digit UID). Partial archiving is handy in the case that the job happens to fail partway through due to e.g. network issue. You can resume the process from where you left off instead of starting all over.  
 
+### Examples:
+Archive all messages from the `random` channel of `yourworkspace`
+````
+npm run saveMessages -- yourworkspace random 
+````
 
+Archive all messages from before 2025 from the `random` channel of `yourworkspace`
+````
+npm run saveMessages -- yourworkspace random -latest 1735686000.000000
+````
 
+Archive the latest 1000 messages from the `random` channel of `yourworkspace`
+````
+npm run saveMessages -- yourworkspace random -limit 1000
+````
 
-***IMPORTANT:** Direct messages are NEVER archived, for hopefully obvious reasons
+### Other scripts
+#### Archive users
+Will save all users to the `user` table.
+````
+npm run saveUsers -- [workspace] 
+````
+
+#### List users
+Lists all users in the workspace.
+````
+npm run listUsers -- [workspace] 
+````
+
+#### List channels
+Lists all channels in a workspace.
+
+````
+npm run listChannels -- [workspace] 
+````
+
+#### List messages
+Lists messages from a given channel.
+
+````
+npm run listMessages -- [workspace] [channelname] [[-limit]] [[-latest]] 
+````
+
+There are a few other utility scripts available as well, go to the script inside `package.json` to see them all. 
+
+---
+
+## Goals
+
+The one glaring omission is an API + user interface to view and search through the archive. I haven't had any time for this - it definitely would require some robust user authentication plus a load of data privacy considerations on top of the ones that this software already creates.
+
+If you're up to the task to build out an API or frontend (or both), fork this repo, and have at it. 
