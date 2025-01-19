@@ -147,30 +147,30 @@ npm run saveMessages -- yourworkspace random -limit 1000
 ````
 
 ### Other scripts
+#### List messages
+Lists messages from a given channel. Essentially the exact same console output as `saveMessages`, but without actually writing to database or downloading files.
+
+````
+npm run listMessages -- [workspace] [channelname] [[-limit]] [[-latest]] 
+````
+
 #### Archive users
-Will save all users to the `user` table.
+Saves all users to the `user` table.
 ````
 npm run saveUsers -- [workspace] 
 ````
 
 #### List users
-Lists all users in the workspace.
+Outputs all users in the workspace to the console.
 ````
 npm run listUsers -- [workspace] 
 ````
 
 #### List channels
-Lists all channels in a workspace.
+Outputs all channels in a workspace to the console.
 
 ````
 npm run listChannels -- [workspace] 
-````
-
-#### List messages
-Lists messages from a given channel.
-
-````
-npm run listMessages -- [workspace] [channelname] [[-limit]] [[-latest]] 
 ````
 
 There are a few other utility scripts available as well, go to the script inside `package.json` to see them all. 
