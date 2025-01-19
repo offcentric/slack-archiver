@@ -54,7 +54,7 @@ By using this software, you assume all liabilities regarding any possible violat
    ````
 
 ### Slack App set up
-1. Log into Slack, go to https://api.slack.com/apps/.
+1. Log into Slack, then go to https://api.slack.com/apps/.
 2. Click "Create New App" button, select "From scratch".
 3. Enter "Archiver" as App Name, and select the workspace to which you want to add the app.
 4. Click Create App button.
@@ -109,7 +109,7 @@ By using this software, you assume all liabilities regarding any possible violat
 Now that your Slack app is installed, you can finish setting all the required environment variables inside your `.env` file.
 1. While still at the *Settings -> Install App* page, copy over the following values:  
    - **User OAuth Token** as `SLACK_USER_TOKEN_YOURWORKSPACE`    
-   - **Bot User OAuth Token** as `SLACK_VERIFICATION_TOKEN_YOURWORKSPACE`  
+   - **Bot User OAuth Token** as `SLACK_BOT_TOKEN_YOURWORKSPACE`  
       
   
 2. (Optional) For `SLACK_IGNORED_CHANNELS_YOURWORKSPACE`, you can add a comma-separated list of channels you never want to archive. 
