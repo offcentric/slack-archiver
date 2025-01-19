@@ -32,8 +32,8 @@ By using this software, you assume all liabilities regarding any possible violat
    - adjust value of `PORT` to what port you want to run the Node server
    - adjust database connection string at `DATABASE_URL` to work for your server 
    - adjust value of `MAX_DOWNLOAD_FILE_SIZE_KB` to your preference. Files larger that this value will not be downloaded to your server's file system (however will still be added to the `file` database table)
-7. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
-8. Choose one of the `ecosystem.config.*.cjs` files:  
+5. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
+6. Choose one of the `ecosystem.config.*.cjs` files:  
    - `development` will run node using `tsx watch` against the `src` folder, auto restarting on file changes. Handy for development and debugging.
    - `production` will run the compiled Javascript in `dist` folder. More performant.
    - In your chosen ecosystem file, adjust the value of `port` to the port of your Node instance.
@@ -47,7 +47,7 @@ By using this software, you assume all liabilities regarding any possible violat
    ````
    - Run `pm2 log` to make sure the server is running with no errors.
    - Test by calling *https://yourseveraddress.net/test*
-8. Run  
+7. Run  
    ````
    npm run migrate
    ````
