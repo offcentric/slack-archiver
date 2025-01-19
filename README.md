@@ -4,6 +4,8 @@ A Slack app that allows you to archive all Slack messages to an external databas
 
 This will run a Node server using PM2 process manager. Feel free to run it directly or using another launcher, however some of the setup steps will no longer be relevant to you.
 
+If you come across any inaccuracies with these installation steps, reach out to me.
+
 ---
 ## Requirements
 
@@ -175,4 +177,4 @@ There are a few other utility scripts available as well, go to the script inside
 
 The one glaring omission is an API + user interface to view and search through the archive. I haven't had any time for this - it definitely would require some robust user authentication plus a load of data privacy considerations on top of the ones that this software already creates.
 
-If you're up to the task to build out an API or frontend (or both), fork this repo, and have at it. 
+If you're up to the task to build out an API or frontend (or both), fork this repo, and have at it.
