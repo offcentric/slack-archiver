@@ -78,7 +78,10 @@ export const process = async (req, res) => {
         }
         return returnSuccess(res, ret);
     }catch (e){
-        await slack.sendAlert('error_posting_message_to_database: '+e.message, getEnvConfig('SLACK_ALERTS_CHANNEL', 'alerts'));
+        await slack.sendAlert('error_posting_message_to_database: '+e.message, getEnvConfig('SLACK_ALERTS_CHANNEL_'+workspace, 'alerts'), body);
+        if(!e.detail || typeof e.detail === 'undefined'){
+            e.detail = {payload: body};
+        }
         return returnExceptionAsError(res,e)
     }
 }

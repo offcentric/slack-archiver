@@ -65,7 +65,7 @@ class SlackProvider {
         const pos = channelIds.indexOf(channelId);
 
         if(pos === -1){
-            throw new Exception('channel_not_found');
+            throw new Exception('channel_not_found: '+channelId);
         }
         const ret = Object.keys(channels)[pos];
         return ret;
