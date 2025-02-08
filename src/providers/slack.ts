@@ -53,6 +53,7 @@ class SlackProvider {
 
         const channels = await this.getChannelList();
         if(!channels[channelName]){
+            console.error('channel_not_found', channelName, channels);
             throw new Exception('channel_not_found: '+channelName);
         }
         return channels[channelName];
@@ -65,6 +66,7 @@ class SlackProvider {
         const pos = channelIds.indexOf(channelId);
 
         if(pos === -1){
+            console.error('channel_not_found', channelId, channels);
             throw new Exception('channel_not_found: '+channelId);
         }
         const ret = Object.keys(channels)[pos];
