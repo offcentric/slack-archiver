@@ -79,7 +79,7 @@ class SlackProvider {
 
         if(!ret || !Object.keys(ret).length){
             ret = {};
-            const channelsData = await this.slack.conversations.list({types:'public_channel,private_channel'});
+            const channelsData = await this.slack.conversations.list({ types: 'public_channel,private_channel,mpim,im' });
             for(const i in channelsData.channels){
                 const channelData = channelsData.channels[i];
                 ret[channelData.name] = channelData.id;
