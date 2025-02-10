@@ -66,7 +66,8 @@ export const process = async (req, res) => {
 
             const channelName = await slack.getChannelName(channel);
             if(getEnvConfig('SLACK_IGNORED_CHANNELS_'+workspace.toUpperCase(), []).includes(channelName)){
-                return returnError(res,'channel_on_ignore_list: '+channelName);
+                // return returnError(res,'channel_on_ignore_list: '+channelName);
+                return;
             }
 
             ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
