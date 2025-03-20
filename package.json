@@ -19,7 +19,8 @@
     "getFile": "tsx src/scripts/file.info.ts",
     "fixAttachments": "tsx src/scripts/attachment.fix.ts",
     "build": "tsc && tsc-alias",
-    "migrate": "node-pg-migrate up"
+    "migrate": "node-pg-migrate up",
+    "pm2": "pm2 reload ecosystem.config.cjs"
   },
   "repository": {
     "type": "git",

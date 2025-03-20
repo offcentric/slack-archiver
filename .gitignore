@@ -11,5 +11,9 @@ yarn-error.log*
 .vscode/*
 .env
 .idea
-.env
 dist
+package-lock.json
+node_modules
+files
+log
+ecosystem.config.cjs
