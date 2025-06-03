@@ -1,6 +1,5 @@
 import dateFormat from "date-format";
-import addDaysToDate from 'date-fns/addDays';
-import format from 'date-fns/format';
+import {addDays as addDaysToDate, format } from 'date-fns';
 
 export const getDateRange = (start_date:string|Date, end_date:string|Date) => {
     const formatObj:{year:any, month:any, day:any} = {year:"numeric",month:"short",day:"numeric"};
