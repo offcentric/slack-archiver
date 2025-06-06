@@ -1,12 +1,12 @@
+import express from 'express';
 import {parseFlags} from "helpers/script";
-import {getMessagesForChannel} from "models/message";
+import {Message} from "models/message";
 import process from "node:process";
 
 const messagesSave = async (workspace:string, channelName?:string, latest?:number, limit?:number) => {
     
-    await getMessagesForChannel(workspace, channelName, latest, limit, true);
+    await (new Message(express.request)).getForChannel(workspace, channelName, latest, limit, true);
     process.exit();
-
 }
 
 if (process.argv.length > 2) {

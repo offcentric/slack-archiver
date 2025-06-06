@@ -1,8 +1,8 @@
 import {returnSuccess, returnError, returnExceptionAsError} from "helpers/response";
-import {saveMessageData} from "models/message";
-import {saveUser} from "models/user";
+import {User} from "models/user";
 import {initSlack}  from 'providers/slack';
 import {getEnvConfig} from "helpers/config";
+import {Message} from "models/message";
 
 export const process = async (req, res) => {
 
@@ -70,10 +70,10 @@ export const process = async (req, res) => {
                 return;
             }
 
-            ret = await saveMessageData(message, workspace, channelName, event.thread_ts);
+            ret = await (new Message(req)).save(message, workspace, channelName, event.thread_ts);
         }else if(eventType === 'team_join'){
-            const user = event.user;
-            ret = {id: await saveUser(user, workspace)}
+            const userData = event.user;
+            ret = {id: await (new User(req)).save(userData, workspace)}
         }else if(['channel_created','channel_deleted','group_deleted','channel_rename','group_rename','channel_archive','group_archive','channel_unarchive','group_unarchive'].includes(eventType) || await slack.privateChannelCreated(event)){
             ret = await slack.refeshChannelList();
         }
@@ -85,8 +85,4 @@ export const process = async (req, res) => {
         }
         return returnExceptionAsError(res,e)
     }
-}
-
-export const test = async (req, res) => {
-    return returnSuccess(res);
 }

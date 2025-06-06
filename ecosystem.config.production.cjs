@@ -3,7 +3,7 @@ const { env } = require("process");
 module.exports = {
     apps : [{
         name: 'SLACK_ARCHIVER',
-        script: 'node --import ./register-ts-loader.js ./dist/server.js',
+        script: 'node --experimental-specifier-resolution=node --no-warnings dist/server.js',
         env: {
             COMMON_VARIABLE: 'true',
             PORT: 6969,

@@ -4,6 +4,7 @@ import {set as setCache, get as getCache, del as deleteCache, getCacheKey} from 
 import Exception from '../models/exception';
 
 const dataMemoized = {};
+export type SaveAction = "add"|"edit"|"delete";
 
 export const get:any = async(tableName:string, params:any, key = "id", joins = [], responseFields = ['id'], cacheTtl:any = false, isAdm = false) => {
     const id = params[key];
@@ -129,6 +130,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
                 }
             }
             if(limit){
+                console.log("LIMIT", limit);
                 if(Array.isArray(limit)){
                     if(limit.length === 2){
                         qb.limit(limit[0]);
@@ -141,7 +143,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             // console.log("************************* COLLECTION PAYLOAD ["+tableName+"] **************************", params);
             // console.log("************************* COLLECTION PARAMS ["+tableName+"] **************************", filters);
             // console.log("************************* COLLECTION RESPONSE ["+responseFields+"] **************************", filters);
-            // console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
+            console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
             // const keyData = qb.select().toString()+responseFields.toString()+!!distinct;
             // let ret = null;
             // ret = await getMemoizedData(keyData);
@@ -149,14 +151,16 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             //     return ret;
             // }
             // const ret = await qb.select(responseFields).orderBy(orderBy);
+            qb.columns(responseFields);
+            let resp;
             if(distinct){
-                ret = await qb.distinct(responseFields);
+                resp = await qb.distinct();
             }else{
-                ret = await qb.select(responseFields);
+                resp = await qb.select();
             }
             // console.log("ITEMS FOR "+tableName, ret);
             // memoizeData(keyData, ret);
-            return ret || [];
+            return resp || [];
         }
         ret = await send();
         if(cacheTtl === -1){
@@ -167,7 +171,53 @@ export const getCollection = async (tableName:string, params:Record<string, any>
         return ret;
     }catch (error){
         console.error("error", error);
-        throw new Exception('unable_to_get_'+tableName+': '+error.detail, 500, errorMessage);
+        throw new Exception('unable_to_get_'+tableName+'_collection: '+error.detail, 500, errorMessage);
+    }
+}
+
+export const getCount = async (tableName:string, params:Record<string, any> = {}, joins = [], distinct = false, cacheTtl:any = false):Promise<number> => {
+    try{
+        const cKey = getCacheKey("getCount", tableName, params, joins, distinct);
+        if(cacheTtl === -1){
+            await deleteCache(cKey);
+        }
+        let ret = await getCache(cKey);
+
+        const send = async () => {
+            const filters = paramsToFilters(params, joins);
+            const qb = db(tableName);
+            addFiltersToQuery(qb, filters, tableName)
+            addJoinsToQuery(qb, joins);
+            // console.log("************************* COUNT PAYLOAD ["+tableName+"] **************************", params);
+            // console.log("************************* COUNT PARAMS ["+tableName+"] **************************", filters);
+            // console.log("************************* COUNT RESPONSE ["+responseFields+"] **************************", filters);
+            // console.log("****** COUNT SQL ***************", qb.select(responseFields).toString());
+            // const keyData = qb.select().toString()+responseFields.toString()+!!distinct;
+            // let ret = null;
+            // ret = await getMemoizedData(keyData);
+            // if(ret !== false){
+            //     return ret;
+            // }
+            // const ret = await qb.select(responseFields).orderBy(orderBy);
+            let resp;
+            if(distinct){
+                resp = await qb.distinct().count('*');
+            }else{
+                resp = await qb.select().count('*');
+            }
+            // console.log("ITEMS FOR "+tableName, ret);
+            // memoizeData(keyData, ret);
+            return resp || [];
+        }
+        ret = await send();
+
+        if(cacheTtl !== false){
+            await setCache(cKey, ret, cacheTtl);
+        }
+        return parseInt(ret[0].count);
+    }catch (error){
+        console.error("error", error);
+        throw new Exception('unable_to_get_'+tableName+'_count: '+error.detail, 500, errorMessage);
     }
 }
 
@@ -340,10 +390,10 @@ export const paramsToFilters = (params, joins?) => {
                     const value = val['__value'];
                     const joinTable = val['__joinTable'];
                     const relationType = val['__relationType'];
-                    const joinField = val['__relationType'] === 'many' ? 'ANY('+joinTable+'_codes)' : joinTable+'_code';
+                    const joinField = val['__relationType'] === 'many' ? 'ANY('+joinTable+'_ids)' : joinTable;
                     key = joinTable+'.'+Object.keys(value)[0];
                     if(joins){
-                        joins.push({table:joinTable, first:joinTable+'.code', second:joinField});
+                        joins.push({table:joinTable, first:joinTable+'.uid', second:joinField});
                     }
                     filters.push({key,comp:'=',val:Object.values(value)[0]});
                 }else if(['is','is not','like','any','>','<','>=','<=','<>', '!='].indexOf(subkey) !== -1){

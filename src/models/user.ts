@@ -1,17 +1,74 @@
 import {addedit} from "helpers/data";
+import GenericModel from "models/_genericModel";
+import {Request} from "express";
+import {SavePayload} from "payload/_abstract";
+import Metadata from "interfaces/_metadata";
 
-export const saveBatch = async(usersResponse, workspace) => {
+const metadata:Array<Metadata> = [
+    {
+        key:"id",
+        type : "integer",
+        sortable_key: 'id',
+        show_in_list : true,
+    },
+    {
+        key:"uid",
+        type : "string",
+        sortable_key: 'path',
+        show_in_list : true,
+    },
+    {
+        key:"workspace",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"team_id",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"name",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"real_name",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"is_bot",
+        type : "boolean",
+        show_in_list : true,
+    },
+];
 
-    for(let user of usersResponse.members) {
-        console.log("USER", user);
-        // console.log("PROFILE", user.profile);
-        await saveUser(user, workspace);
+export class User extends GenericModel {
+    indexField = 'id';
+    messageCount = 0;
+    listAll = true;
+    orderBy = 'name';
+
+    constructor(req: Request) {
+        super('user', {metadata}, req);
+    }
+
+    async saveBatch(usersResponse, workspace) {
+        for(let user of usersResponse.members) {
+            console.log("USER", user);
+            // console.log("PROFILE", user.profile);
+        await this.save(user, workspace);
     }
 }
 
-export const saveUser = async(user, workspace) => {
-    const payload = {uid:user.id, workspace, team_id:user.team_id, name:user.name, real_name:user.real_name, is_bot:user.is_bot};
-    console.log("SAVING USER", payload);
-    return await addedit('user', payload, 'uid', 'add', ['uid'] );
-}
+    prepareSavePayload(payload:SavePayload){
+        return {...payload, uid:payload.id, workspace: this.workspace};
+    }
 
+    async save(payload, workspace) {
+        this.workspace = workspace;
+        console.log("SAVE FILE", payload);
+        return await this._addedit(payload, 'add', ['uid']);
+    }
+}

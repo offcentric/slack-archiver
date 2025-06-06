@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.error_log
     method character varying(255) COLLATE pg_catalog."default",
     user_id integer,
     created_at timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP,
+    "params" text,
     CONSTRAINT error_log_pkey PRIMARY KEY (id)
     )
 

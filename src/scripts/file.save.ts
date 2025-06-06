@@ -1,8 +1,9 @@
-import {getFileByUid} from "models/file";
+import {File} from "models/file";
+import express from "express";
 
 const fileSave = async (workspace, fileUid, channelName?) => {
 
-    await getFileByUid(fileUid, workspace, true, channelName);
+    await (new File(express.request)).getByUid(fileUid, workspace, true, channelName);
     process.exit();
 
     // console.log("****************** ALL MESSAGES ************************");

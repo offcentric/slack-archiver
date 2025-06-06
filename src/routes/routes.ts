@@ -1,9 +1,15 @@
 import express from 'express';
 
-import {process, test} from '../controllers/webhookController';
+import fileRoute from "routes/fileRoute";
+import messageRoute from "routes/messageRoute";
+import userRoute from "routes/userRoute";
+import webhookRoute from "routes/webhookRoute";
+
 const router = express.Router({mergeParams: true});
 
-router.post('/webhook', process);
-router.get('/test', test);
+router.use('/file', fileRoute);
+router.use('/message', messageRoute);
+router.use('/user', userRoute);
+router.use('/webhook', webhookRoute);
 
 export default router;

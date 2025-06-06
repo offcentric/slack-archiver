@@ -1,4 +1,5 @@
 import {status,} from '../helpers/status';
+import {isLocalEnvironment} from '../helpers/env';
 
 export interface ExceptionInterface{
     code:number,
@@ -12,11 +13,13 @@ export default class Exception extends Error{
     status = 'error';
     detail = {};
 
-    constructor(msg:string = 'unspecified_error', code:number = status.error, detail?){
+    constructor(msg:string = 'unspecified_error', code:number = status.error, detail?, mute = false){
         super();
         this.code = code;
         this.message = msg;
-        this.detail = detail;
-        console.log("[DEV] Exception", this);
+        this.detail = typeof detail === 'object' ? JSON.stringify(detail) : detail;
+        if(isLocalEnvironment && !mute){
+            console.log("[DEV] Exception", this);
+        }
     }
 }

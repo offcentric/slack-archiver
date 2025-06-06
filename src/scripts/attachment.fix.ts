@@ -1,8 +1,9 @@
-import {fixAttachments} from "models/attachment";
+import {Attachment} from "models/attachment";
+import express from "express";
 
 const attachmentFix = async (workspace) => {
 
-    await fixAttachments(workspace);
+    await (new Attachment(express.request)).fix(workspace);
     process.exit();
 
     // console.log("****************** ALL MESSAGES ************************");
