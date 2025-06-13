@@ -8,8 +8,11 @@ export const status = {
     notfound: 404,
     bad: 400,
     unauthorized: 401,
+    forbidden: 403,
+    not_found: 404,
     conflict: 409,
     unprocessable:422,
+    too_many_requests:429,
     created: 201,
     nocontent: 204
 };

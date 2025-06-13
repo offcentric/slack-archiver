@@ -1,5 +1,4 @@
 import {checkAuth} from '../helpers/auth';
-import { getEnvConfig } from '../helpers/config';
 import {isProductionEnvironment} from '../helpers/env';
 import { returnSuccess, returnError, returnExceptionAsError, handleError, redirect } from '../helpers/response';
 import {getPayload} from '../helpers/payloadFields';
@@ -9,7 +8,7 @@ import GenericModel from '../models/_genericModel';
 import {SaveAction} from '../helpers/data';
 import Exception from '../models/exception';
 import {QueryPayload, SavePayload} from "../payload/_abstract";
-import {UserRoles} from "helpers/user";
+import {getDate} from "helpers/date";
 
 
 export class GenericController{
@@ -18,6 +17,7 @@ export class GenericController{
     model:GenericModel = null;
     req = null;
     isAdm = false;
+    payloadOverride:Record<string, any> = {};
 
     constructor(req:Request) {
         this.req = req;
@@ -60,12 +60,13 @@ export class GenericController{
 
     async list(req:Request, res:Response, doResponse = true, session = false, orderBy?, limit:number|Array<number|null> = [null,null]) {
         try {
-
-            const isAdm = this.isAdm;
-            if (session || isAdm) {
-                await checkAuth(req);
+            // await checkAuth(req);
+            let payload;
+            if(Object.keys(this.payloadOverride).length){
+                payload  = this.payloadOverride;
+            }else{
+                payload = this.getPayload();
             }
-            const payload = this.getPayload();
             if (!Object.keys(payload).length && !this.model.listAll && isProductionEnvironment) {
                 throw new Exception('missing_list_filter')
             }
@@ -95,11 +96,35 @@ export class GenericController{
         try {
             await checkAuth(req);
             const payload = this.getPayload();
-            const ret = await this.model._addedit(payload, action, null, true);
+            const ret = await this.model._addedit(payload, action, null);
             return this.returnSuccess(res, ret, doResponse);
         } catch (e) {
             return this.returnExceptionAsError(res, e, doResponse);
         }
+    }
+
+    handleDateFilter(res, dateField = 'created_at') {
+        const payload = this.getPayload();
+        payload[dateField] = [];
+
+        if(payload.date_from){
+            const dateFrom = new Date(payload.date_from);
+            if(isNaN(dateFrom.getTime())) {
+                return this.returnError(res, 'invalid_date_from');
+            }
+            payload[dateField].push({'>=': getDate(dateFrom)});
+            delete payload.date_from;
+        }
+        if(payload.date_to){
+            const dateTo = new Date(payload.date_to);
+            if(isNaN(dateTo.getTime())) {
+                return this.returnError(res, 'invalid_date_to');
+            }
+            payload[dateField].push({'<=': getDate(dateTo)});
+            delete payload.date_to;
+        }
+
+        this.payloadOverride = payload;
     }
 
     async metadata(req:Request, res:Response) {

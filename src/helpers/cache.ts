@@ -1,39 +1,28 @@
 import NodeCache from "node-cache";
-
 import {createHash} from 'crypto';
-import { getEnvConfig } from './config';
 
-var client = null;
+var client:NodeCache = null;
 var envPrefix = 'c_';
 
-export const isRedisEnabled = getEnvConfig('ENABLE_REDIS', false);
-export const redisId = getEnvConfig('REDIS_DATABASE_NUMBER');
-const environment = getEnvConfig('ENVIRONMENT');
-let forceNodeCache = false;
-
-const initClient = async (forceNC = false) => {
-    forceNodeCache = forceNC;
+const initClient = () => {
     if(client === null){
         client = new NodeCache();
     }
     return client;
 }
 
-export const set = async (key:string, value:any, ttl:number = 3600, forceNodeCache = false) => {
+export const set = (key:string, value:any, ttl:number = 3600) => {
     if(typeof value !== "string"){
         value = JSON.stringify(value)
     }
-    //
-    // console.log("**************************************************** CACHE IS SET FOR "+key, value)
-
-    await initClient(forceNodeCache);
+    initClient();
     client.set(envPrefix+key, value, ttl);
 }
 
-export const get = async (key:string, forceNodeCache = false) => {
-    await initClient(forceNodeCache);
+export const get = (key:string) => {
+    initClient();
 
-    let value:any = await client.get(envPrefix+key);
+    let value:any = client.get(envPrefix+key);
     try{
         value = JSON.parse(value);
     }catch(e){
@@ -42,7 +31,6 @@ export const get = async (key:string, forceNodeCache = false) => {
     if(value === null || typeof value === 'undefined'){
         value = false;
     }
-    // console.log("GOT CACHE FOR "+key, value)
     return value;
 }
 
@@ -50,7 +38,7 @@ export const del = async (key:string) => {
     await initClient();
 
     await initClient();
-    return await client.del(envPrefix+key);
+    return client.del(envPrefix+key);
 }
 
 export const getCacheKey = (method:string, tableName:string, ...args) => {
@@ -75,7 +63,7 @@ export const getCacheKey = (method:string, tableName:string, ...args) => {
     return ret;
 }
 
-export const flush = async(forceNodeCache = false) => {
+export const flush = async() => {
     client.flushAll();
     console.log(`************ FLUSHED NODE CACHE *************`);
 }

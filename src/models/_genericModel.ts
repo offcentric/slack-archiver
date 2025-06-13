@@ -5,16 +5,16 @@ import {getEnvConfig} from "helpers/config";
 import {
     getBy,
     getCollection,
+    getCount,
     addedit,
     upsert,
     update,
     hardDeleteItem,
-    SaveAction, getCount
+    SaveAction
 } from '../helpers/data';
 import {getNow} from "helpers/date";
 import {getPayloadForPath} from "helpers/payloadFields";
 import {status} from '../helpers/status';
-import {generateUuid} from "helpers/tools";
 import ApiObject from "../interfaces/_apiobject";
 import Generic from "interfaces/_generic";
 import Metadata, {ChildRelation} from "../interfaces/_metadata";
@@ -118,13 +118,13 @@ export default class GenericModel{
         await this.getJoinsFromMetadata(joins, metadata);
         joins.push(...this.joins);
         const responseFields = await this.getResponseFields();
-
         const viewOrTable = this.viewNameSingle ? this.viewNameSingle : this.tableName;
+
         // never return a row that is soft deleted
         if(this.hasMetadataField('deleted')){
             params['deleted'] = false;
         }
-        const ret:ApiObject = await getBy(viewOrTable, params, joins, throwIfMissing, responseFields, this.cacheTtl, this.isAdm);
+        const ret:ApiObject = await getBy(viewOrTable, params, joins, throwIfMissing, responseFields, this.cacheTtl);
         if(ret){
             this.data = ret;
             await this.enrichItem(ret);
@@ -144,7 +144,7 @@ export default class GenericModel{
         }
     }
 
-    async _getCollection(params:QueryPayload = {}, orderBy?:string|Array<string|Record<string, any>>, limit:Array<number>|number = null, addPagination = false,distinct = false,  cacheTtl:number|false = false, detail = false):Promise<{items:Array<any>}>{
+    async _getCollection(params:QueryPayload = {}, orderBy?:string|Array<string|Record<string, any>>, limit:Array<number>|number = null, addPagination = false, distinct = false,  cacheTtl:number|false = false, detail = false):Promise<{items:Array<any>}>{
         await this._processCollectionParams(params, orderBy, limit);
 
         const metadata = this.getMetadata();
@@ -197,10 +197,10 @@ export default class GenericModel{
             const item = this.metadata[i];
             if(this.forAdmin || !item.admin_only){
                 if(typeof item.child_relation == 'object'){
-                    if(Object.keys(item.child_relation).indexOf('outfield') == -1){
-                        item.child_relation.outfield = 'code';
+                    if(!Object.keys(item.child_relation).includes('outfield')){
+                        item.child_relation.outfield = 'id';
                     }
-                    if(Object.keys(item.child_relation).indexOf('output_key') == -1){
+                    if(!Object.keys(item.child_relation).includes('output_key')){
                         if(item.type == 'lookup'){
                             item.child_relation.output_key = item.key;
                         }else{
@@ -254,8 +254,8 @@ export default class GenericModel{
     async getJoinsFromMetadata(joins, metadata:Metadata[], forList = false){
         for(const i in metadata){
             if(metadata[i].child_relation && metadata[i].child_relation.for_join){
+                const lateral = metadata[i].child_relation.for_join;
                 const item = metadata[i];
-
                 if(forList && !item.child_relation.show_in_list){
                     continue;
                 }
@@ -271,7 +271,8 @@ export default class GenericModel{
                 if(metadata[i].type === 'array'){
                     second = `any(${second})`;
                 }
-                joins.push({table:item.child_relation.table_name, as, first:as+'.'+(item.child_relation.outfield || 'code'), second, outfield});
+                const joinTable = item.child_relation.table_name || (new item.child_relation.model(this.request)).tableName;
+                joins.push({table:joinTable, as, first:(lateral ? item.child_relation.outfield : as+'.'+(item.child_relation.outfield || 'id')), second, outfield, lateral});
             }
         }
     }
@@ -449,45 +450,33 @@ export default class GenericModel{
     }
 
     showExtendedData(tableName?: string){
-        return this.extended && (this.extended.includes(tableName ?? this.tableName) || this.extended.includes('all'));
+        return this.detail ||(this.extended && (this.extended.includes(tableName ?? this.tableName) || this.extended.includes('all')));
     }
 
-    async _addedit(payload:SavePayload, action:SaveAction = 'add', responseFields = null, addSavePayloadDefaults = false):Promise<{response:Generic|any, errors:Array<any>}>{
+    async _addedit(payload:SavePayload, action:SaveAction = 'add', responseFields = null):Promise<{response:Generic|any, errors:Array<any>}>{
         if(!responseFields){
             responseFields = await this.getResponseFields();
         }
         const ret = {errors:[], response:{}};
-        if(addSavePayloadDefaults) {
-            await this.addSavePayloadDefaults(payload);
-        }
         payload = this.prepareSavePayload(payload);
         ret.response = await addedit(this.tableName, payload, this.indexField, action, responseFields);
         return ret;
     }
 
-    async _upsert(updateParams:Record<string, unknown>, whereParams:Record<string, unknown>, addSavePayloadDefaults = false){
+    async _upsert(updateParams:Record<string, unknown>, whereParams:Record<string, unknown>){
         const responseFields = await this.getResponseFields();
-        if(addSavePayloadDefaults) {
-            await this.addSavePayloadDefaults(updateParams);
-        }
-        this.prepareSavePayload(updateParams);
+        updateParams = this.prepareSavePayload(updateParams);
         return await upsert(this.tableName, updateParams, whereParams, responseFields);
     }
 
-    async _update(updateParams:Record<string, any>|Record<string, unknown>, whereParams:Record<string, unknown>, addSavePayloadDefaults = false){
+    async _update(updateParams:Record<string, any>|Record<string, unknown>, whereParams:Record<string, unknown>){
         const responseFields = await this.getResponseFields();
-        if(addSavePayloadDefaults) {
-            await this.addSavePayloadDefaults(updateParams);
-        }
-        this.prepareSavePayload(updateParams);
+        updateParams = this.prepareSavePayload(updateParams);
         return await update(this.tableName, updateParams, whereParams, responseFields);
     }
 
-    prepareSavePayload(payload:SavePayload){
+    prepareSavePayload(payload:SavePayload):SavePayload{
         return payload;
-    }
-
-    async addSavePayloadDefaults(payload:SavePayload){
     }
 
     getChildFromMetadata(metadata:Metadata):ChildData|false{
@@ -541,7 +530,7 @@ export default class GenericModel{
         const indexVal = childPayload[referenceField];
         childPayload = getPayloadForPath(this.request, child.path+'/'+action, childPayload);
         if(Object.keys(childPayload).length){
-            const {response} = await child.modelInstance._addedit(childPayload, action, [referenceField], true);
+            const {response} = await child.modelInstance._addedit(childPayload, action, [referenceField]);
             return response[referenceField];
         }else{
             return indexVal;
@@ -611,12 +600,12 @@ export default class GenericModel{
         return await this._softDelete(params);
     }
 
-    async _hardDelete(params:Record<string, unknown>, hard = false){
+    async _hardDelete(params:Record<string, unknown>){
         const responseFields = await this.getResponseFields();
         return await hardDeleteItem(this.tableName, params, responseFields);
     }
 
-    async _softDelete(whereParams:Record<string, unknown>, hard = false){
+    async _softDelete(whereParams:Record<string, unknown>){
         const responseFields = await this.getResponseFields();
         const updateParams:any = {deleted:1};
         if(this.hasMetadataField('deleted_at')){

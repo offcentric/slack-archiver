@@ -7,8 +7,6 @@ import {Block} from "../models/block";
 import Exception from "../models/exception";
 import {initSlack}  from '../providers/slack';
 import GenericModel from "models/_genericModel";
-import {SavePayload} from "payload/_abstract";
-
 
 const metadata:Array<Metadata> = [
     {
@@ -70,17 +68,20 @@ const metadata:Array<Metadata> = [
     },
     {
         key:"file_ids",
-        type : "array",
+        type:"array",
+        child_relation:{for_join: true, output_key: "files", model: File, show_in_list: true},
         show_in_list : true,
     },
     {
         key:"attachment_ids",
         type : "array",
+        child_relation:{for_join: true, output_key: "attachments", model: Attachment, show_in_list: true},
         show_in_list : true,
     },
     {
         key:"block_ids",
         type : "array",
+        child_relation:{for_join: true, output_key: "blocks", model: Block, show_in_list: true},
         show_in_list : true,
     },
 ];
@@ -109,7 +110,7 @@ export class Message extends GenericModel{
             break;
         }
 
-        const lastMessage = resp.messages[resp.messages.length-1];
+        // const lastMessage = resp.messages[resp.messages.length-1];
         // console.log("LAST MESSAGE",lastMessage, getDateTime(lastMessage.ts));
         await this.processBatch(resp, channelName, workspace, doSave)
         ret = ret.concat(resp.messages);
@@ -218,5 +219,6 @@ export class Message extends GenericModel{
             }
         }
     }
+
 }
 

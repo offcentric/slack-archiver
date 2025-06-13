@@ -4,12 +4,14 @@ import Exception from '../models/exception';
 import {PayloadFields as FileFields} from '../payload/file';
 import {PayloadFields as ErrorLogFields} from '../payload/errorlog';
 import {PayloadFields as MessageFields} from '../payload/message';
+import {PayloadFields as UserFields} from '../payload/user';
 import {PayloadItemInterface} from "interfaces/payload";
 
 const AllFields = {
     'message': MessageFields,
     'file': FileFields,
     'errorlog': ErrorLogFields,
+    'user': UserFields,
 };
 
 export const getPayload = (req:Request, forContentful = false, bodyOverride?:Record<string, any>) => {
@@ -39,8 +41,6 @@ export const getPayloadFields = (path:string, forContentful = false):Array<Paylo
         const parts = (path.split('?'));
         path = parts[0];
     }
-    console.log("GET PAYLOAD FOR PATH1", path);
-
 
     const pathParts = path.split('/');
     if (pathParts[0] === 'adm') {
@@ -57,7 +57,6 @@ export const getPayloadFields = (path:string, forContentful = false):Array<Paylo
             endpoint += '/'+ pathParts.shift().toLowerCase();
         }
     }
-    console.log("GET ENDPOINT", endpoint);
 
     if (api && !AllFields[api]) {
         return [];

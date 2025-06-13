@@ -10,6 +10,15 @@ export class FileController extends GenericController{
         this.model.orderBy = ['created_at', 'desc'];
         this.model.limit = 500;
     }
+
+    async list(req:Request, res:Response) {
+        this.handleDateFilter(res, 'created_at');
+        return await super.list(req, res);
+    }
+}
+
+export const get = async(req:Request, res:Response) => {
+    return await (new FileController(req)).get(req, res);
 }
 
 export const list = async(req:Request, res:Response) => {

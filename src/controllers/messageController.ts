@@ -9,6 +9,15 @@ export class MessageController extends GenericController{
         this.model = new Message(req);
         this.model.limit = 500;
     }
+
+    async list(req:Request, res:Response) {
+        this.handleDateFilter(res, 'datetime');
+        return await super.list(req, res);
+    }
+
+}
+export const get = async(req:Request, res:Response) => {
+    return await (new MessageController(req)).get(req, res);
 }
 
 export const list = async(req:Request, res:Response) => {

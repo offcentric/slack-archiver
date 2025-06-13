@@ -1,12 +1,17 @@
-import express from 'express';
+import express, {Request, Response} from 'express';
 import cors from 'cors';
 import path from 'path';
+import pgStore from 'connect-pg-simple';
+import session from 'express-session';
 import routes from './routes/routes';
 import morgan from 'morgan';
 import * as rfs from 'rotating-file-stream';
 import { fileURLToPath } from 'url';
 import { getEnvConfig } from './helpers/config';
 import {responseHeaders} from './helpers/response';
+import doRateLimit from "middleware/ratelimit";
+import checkBlacklist from "middleware/ip_blacklist";
+import logging from "middleware/logging";
 
 class Server{
 
@@ -32,7 +37,40 @@ class Server{
         this.app.use(express.urlencoded({extended:false}));
         this.app.use(express.json());
 
+        this.app.use(async (req:Request, res:Response, next) => {
+            //check ip blacklist
+            await checkBlacklist(req, res, next);
+        });
+
+        this.app.use(async (req:Request, res:Response, next) => {
+            // request rate limiting
+            await doRateLimit(req, res, next);
+        });
+
         this.app.set('trust proxy', 1);
+        this.app.use(session({
+            cookie: {
+                secure: true,
+                maxAge: 60000,
+                expires: false,
+                sameSite: 'none'
+            },
+            nane:'ch-api',
+            resave: false,
+            saveUninitialized: false,
+            secret: 'm0ntegrapp4',
+            maxAge: 10800000,
+            store: new (pgStore(session))({
+                tableName : 'user_session'
+            })
+        }));
+
+        this.app.use((req:Request, res:Response, next) => {
+            const sessionId = req.body['session_id'];
+            req.sessionStore.get(sessionId, (_err, _sess) => {
+                next();
+            });
+        });
 
         this.app.use(cors(corsOptions));
 
@@ -41,7 +79,9 @@ class Server{
 
         const accessLogStream = rfs.createStream('access_'+today+'.log', {interval: '1d', path: path.join(__dirname, '../log')})
         this.app.use(morgan('combined', { stream: accessLogStream }));
+        this.app.use('/', logging);
         this.app.use('/', routes);
+
 
         // catch 404 and forward to error handler
         this.app.use(function (req, res, next) {

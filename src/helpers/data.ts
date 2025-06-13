@@ -1,20 +1,21 @@
+import {Knex} from "knex";
 import {db} from '../db/knex';
 import {errorMessage, status} from '../helpers/status';
 import {set as setCache, get as getCache, del as deleteCache, getCacheKey} from '../helpers/cache';
 import Exception from '../models/exception';
+import {isDevEnvironment} from "helpers/env";
+import {getEnvConfig} from "helpers/config";
 
-const dataMemoized = {};
 export type SaveAction = "add"|"edit"|"delete";
 
-export const get:any = async(tableName:string, params:any, key = "id", joins = [], responseFields = ['id'], cacheTtl:any = false, isAdm = false) => {
+export const get:any = async(tableName:string, params:any, key = "id", joins = [], responseFields = ['id'], cacheTtl:any = false) => {
     const id = params[key];
     if(!id){
         throw new Exception('missing_'+key);
     }
 
-    let ret = null;
     const cKey = getCacheKey("get", tableName, params, key, joins, responseFields);
-    ret = await getCache(cKey);
+    let ret = await getCache(cKey);
     if(ret !== false){
         return ret;
     }
@@ -40,7 +41,7 @@ export const get:any = async(tableName:string, params:any, key = "id", joins = [
     return ret;
 }
 
-export const getBy = async(tableName:string, params, joins = [], throwIfMissing = true, responseFields = ['id'], cacheTtl:any = false, isAdm = false) => {
+export const getBy = async(tableName:string, params, joins = [], throwIfMissing = true, responseFields = ['id'], cacheTtl:any = false) => {
     if(!Object.keys(params)){
         throw new Exception('missing_keys');
     }
@@ -48,11 +49,9 @@ export const getBy = async(tableName:string, params, joins = [], throwIfMissing 
         throw new Exception('missing_values');
     }
 
-    const fieldnames = await getModelFieldnames(tableName, []);
-    let ret:any = [];
     const cKey = getCacheKey("getBy", tableName, params, joins, responseFields);
 
-    ret = await getCache(cKey);
+    let ret = await getCache(cKey);
     if(ret !== false){
         return ret;
     }
@@ -73,7 +72,7 @@ export const getBy = async(tableName:string, params, joins = [], throwIfMissing 
         // });
         addJoinsToQuery(qb, joins);
         // console.log('QUERY '+tableName, params);
-        // console.log("******** GET BY SQL ["+tableName+"] ***************", qb.select(responseFields).toString());
+        console.log("******** GET BY SQL ["+tableName+"] ***************", qb.select(responseFields).toString());
         const resp: Array<Response> = await qb.select(responseFields);
         // console.log('RESPONSE '+tableName, resp);
         if (resp[0] === undefined){
@@ -130,11 +129,14 @@ export const getCollection = async (tableName:string, params:Record<string, any>
                 }
             }
             if(limit){
-                console.log("LIMIT", limit);
                 if(Array.isArray(limit)){
                     if(limit.length === 2){
-                        qb.limit(limit[0]);
-                        qb.offset(limit[1])
+                        if(limit[0]) {
+                            qb.limit(limit[0]);
+                        }
+                        if(limit[1]) {
+                            qb.offset(limit[1])
+                        }
                     }
                 }else{
                     qb.limit(limit);
@@ -143,7 +145,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             // console.log("************************* COLLECTION PAYLOAD ["+tableName+"] **************************", params);
             // console.log("************************* COLLECTION PARAMS ["+tableName+"] **************************", filters);
             // console.log("************************* COLLECTION RESPONSE ["+responseFields+"] **************************", filters);
-            console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
+            // console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
             // const keyData = qb.select().toString()+responseFields.toString()+!!distinct;
             // let ret = null;
             // ret = await getMemoizedData(keyData);
@@ -187,7 +189,6 @@ export const getCount = async (tableName:string, params:Record<string, any> = {}
             const filters = paramsToFilters(params, joins);
             const qb = db(tableName);
             addFiltersToQuery(qb, filters, tableName)
-            addJoinsToQuery(qb, joins);
             // console.log("************************* COUNT PAYLOAD ["+tableName+"] **************************", params);
             // console.log("************************* COUNT PARAMS ["+tableName+"] **************************", filters);
             // console.log("************************* COUNT RESPONSE ["+responseFields+"] **************************", filters);
@@ -221,64 +222,75 @@ export const getCount = async (tableName:string, params:Record<string, any> = {}
     }
 }
 
-export const addedit = async(tableName:string, params:any, indexField = 'id', action = 'add', responseFields = ['id']) => {
+export const addedit = async(tableName:string, params:Record<string, any>, indexField = 'uid', action:SaveAction = 'add', responseFields = ['uid']) => {
 
     const send : any = async () => {
+        checkParams(params, tableName, indexField, action);
 
-        const checkparams = {...params};
-        delete checkparams[indexField];
-        if(!Object.keys(checkparams).length){
-            throw new Exception('no_payload');
-        }
-
-        // console.log("ACTION", action, indexField);
-        if(action === 'edit' && !params[indexField]){
-            throw new Exception('edit_missing_index_for_'+tableName, status.error);
-        }
-
-        let resp:any = await db.transaction((t) => {
+        const resp:any = await db.transaction(async (trx) => {
             const whereParams = [];
             whereParams[indexField] = params[indexField];
-            const st = t(tableName).returning(responseFields);
-            if(indexField){
+            const st = trx(tableName).returning(responseFields);
+            if(action === 'edit' && indexField){
                 st.onConflict([indexField]).merge();
             }
 // console.log("****** ADD SQL PARAMS ***************", params);
 // console.log("****** ADD SQL ***************", st.insert(params).toString());
-            return st.insert(params);
+            const results = await st.insert(params);
+// console.log("****** ADD SQL RESPONSE ***************", results);
+            return results;
         });
-        // console.log("RAW RESPONSE", resp);
         if(resp.command === 'INSERT' && resp.rowCount){
             return true;
         }
-        if(resp.length && resp[0][indexField]){
-            return resp[0];
-        }
-        if(IsNumeric(resp[0])){
+        if(resp.length && (resp[0][indexField] || resp[0][responseFields[0]])){
             return resp[0];
         }
         if(resp[0] === undefined) {
             throw new Exception(tableName+'_not_found', status.notfound);
         }
+
         throw new Exception('unable_to_'+action+'_'+tableName, status.error, resp);
     }
     try{
         return await send();
     }catch(error){
-        console.error("ADDEDIT ERROR", error);
         if(alreadyExists(error.detail)){
             throw new Exception('unique_key_violation', status.conflict, error.detail);
         }
         if(error.detail){
+            console.error(error);
             throw new Exception(error.detail);
         }
-
-        let detail = error.message;
-
+        let detail = null;
+        if(isDevEnvironment){
+            console.error(error);
+            detail = error.message;
+        }
         if(error instanceof Exception){
             throw error;
         }
         throw new Exception('database_error_with_'+action, status.error, detail);
+    }
+}
+
+const checkParams = (params:Record<string, any>, tableName:string, indexField:string, action:SaveAction) => {
+    const checkparams = {...params};
+    delete checkparams[indexField];
+    if(!Object.keys(checkparams).length){
+        throw new Exception('no_payload');
+    }
+
+    // console.log("ACTION", action, indexField);
+    if(action === 'edit' && !params[indexField]){
+        throw new Exception('edit_missing_index_for_'+tableName, status.error);
+    }
+    const maxFieldLength = getEnvConfig('DB_MAX_FIELD_LENGTH', 8192);
+
+    for(const i in params){
+        if(params[i] && typeof params[i] === 'string'){
+            params[i] = params[i].substring(0, maxFieldLength);
+        }
     }
 }
 
@@ -355,7 +367,7 @@ export const getModelFields = async(tableName:string, modelFields) => {
     try{
         const send = async () => {
             const resp : Array<Response> = await db('information_schema.columns').select(['column_name', 'data_type','is_nullable','column_default']).where('table_schema','public').where('table_name',tableName);
-            resp.forEach((el, i) => {
+            resp.forEach((el, ) => {
                 modelFields.push(el);
             })
             return modelFields;
@@ -380,8 +392,15 @@ export const paramsToFilters = (params, joins?) => {
     Object.keys(params).forEach(key => {
         // console.log("PARAMS", params);
         let val = params[key];
-        if(Array.isArray(val)) {
-            filters.push({key, comp: 'in', val});
+        if(Array.isArray(val) && val.length){
+            if(typeof val[0] === 'object'){
+                val = val.map((el) => {
+                    console.log("EL", el);
+                   filters.push({key, comp: Object.keys(el)[0], val:Object.values(el)[0]});//{key, comp: 'in', val:el});
+                });
+            }else{
+                filters.push({key, comp: 'in', val});
+            }
         }else if(val === null){
             filters.push({key, comp: 'is', val});
         }else if(typeof val == 'object'){
@@ -389,7 +408,6 @@ export const paramsToFilters = (params, joins?) => {
                 if(subkey === '__value'){
                     const value = val['__value'];
                     const joinTable = val['__joinTable'];
-                    const relationType = val['__relationType'];
                     const joinField = val['__relationType'] === 'many' ? 'ANY('+joinTable+'_ids)' : joinTable;
                     key = joinTable+'.'+Object.keys(value)[0];
                     if(joins){
@@ -411,48 +429,53 @@ export const paramsToFilters = (params, joins?) => {
 }
 
 export const addFiltersToQuery = (qb, filters, tableName) => {
-    if(filters.length){
+    if (filters.length) {
         filters.forEach((el) => {
-            if(el.comp.toLowerCase() == 'in'){
+            if (el.comp.toLowerCase() == 'in') {
                 qb.andWhere(el.key, 'in', el.val);
-            }else if(el.comp.toLowerCase() === 'is'){
+            } else if (el.comp.toLowerCase() === 'is') {
                 qb.andWhereRaw(el.key + ' ' + el.comp + ' ' + el.val);
-            }else if(el.comp == 'any'){
-                if(Array.isArray(el.val)){
-                    qb.andWhereRaw('"'+el.key+'" = ANY(array[\''+el.val.join('\',\'')+'\'])');
-                }else{
+            } else if (el.comp == 'any') {
+                if (Array.isArray(el.val)) {
+                    qb.andWhereRaw('"' + el.key + '" = ANY(array[\'' + el.val.join('\',\'') + '\'])');
+                } else {
                     let columnName = el.key;
-                    if(columnName.indexOf('.')!==-1){
+                    if (columnName.indexOf('.') !== -1) {
                         const parts = columnName.split('.');
                         tableName = parts[0];
                         columnName = parts[1];
                     }
-                    columnName = '"'+tableName+"\".\""+columnName+'"';
-                    qb.andWhereRaw("'"+el.val+"' = ANY("+columnName+")");
+                    columnName = '"' + tableName + "\".\"" + columnName + '"';
+                    qb.andWhereRaw("'" + el.val + "' = ANY(" + columnName + ")");
                 }
-            }else{
+            } else {
                 // console.log("FILTER", el);
                 let columnName = el.key;
-                if(columnName.indexOf('array_length') !==-1){
-                    qb.andWhereRaw(columnName+el.comp+el.val);
-                }else if(el.val === 'NOW()'){
-                    qb.andWhereRaw(columnName+el.comp+el.val);
-                }else{
-                    if(columnName.indexOf('.')===-1){
-                        columnName = tableName+'.'+columnName;
+                if (columnName.indexOf('array_length') !== -1) {
+                    qb.andWhereRaw(columnName + el.comp + el.val);
+                } else if (el.val === 'NOW()') {
+                    qb.andWhereRaw(columnName + el.comp + el.val);
+                } else {
+                    if (columnName.indexOf('.') === -1) {
+                        columnName = tableName + '.' + columnName;
                     }
                     qb.andWhere(columnName, el.comp, el.val);
                 }
             }
         });
     }
-
 }
 
-export const addJoinsToQuery = (qb, joins) => {
+export const addJoinsToQuery = (qb:Knex.QueryBuilder, joins) => {
     if(joins.length){
-        joins.forEach((el) => {
-            qb.joinRaw('left join "'+el.table+'" '+(el.as?'"'+el.as+'"':'')+' on '+el.first+'='+el.second);
+        joins.forEach((el, i) => {
+            if(el.lateral){
+                const alias = `"${i}"`;
+                qb.joinRaw(`LEFT JOIN LATERAL (SELECT json_agg(${alias}) AS ${el.as} FROM "${el.table}" ${alias} WHERE ${alias}.${el.first} = ${el.second}) ${el.table} ON TRUE`);
+                qb.column(db.raw(`COALESCE(${el.table}.${el.as}, '[]') AS ${el.as}`));
+            }else{
+                qb.joinRaw(`LEFT JOIN "${el.table}" ${el.as?'"'+el.as+'"':''} ON ${el.first} = ${el.second}`);
+            }
             if(el.outfield){
                 //responseFields.push(el.outfield);
             }
@@ -467,8 +490,4 @@ export const getHoursDiff = (date1, date2) => {
 export const alreadyExists = (response) => {
     // console.log("Response", response);
     return response && response.match(/Key \([^)]+\)=\([^)]+\) already exists\./);
-}
-
-const IsNumeric = (val) => {
-    return Number(parseFloat(val)) == val;
 }

@@ -35,7 +35,7 @@ export const shouldRun = async (func:Function|string, interval:number, args?:Arr
 
     const funcName = typeof func === 'function' ? func.name : func;
     const cacheKey = `shouldRun-${funcName}${args && args.length? '-'+args.join('|'):null}`;
-    const lastRun = await getCache(cacheKey, true)
+    const lastRun = await getCache(cacheKey)
     const now = Date.now()/1000;
     if(lastRun && now < lastRun+interval){
         console.log("ALREADY RUN", cacheKey, lastRun)

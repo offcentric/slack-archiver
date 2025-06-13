@@ -4,11 +4,61 @@ import {initSlack}  from 'providers/slack';
 import {Block} from "models/block";
 import GenericModel from "models/_genericModel";
 import {Request} from "express";
-import {SavePayload} from "payload/_abstract";
 import Metadata from "interfaces/_metadata";
 
 const metadata:Array<Metadata> = [
-
+    {
+        key:"id",
+        type : "integer",
+        sortable_key: 'id',
+        show_in_list : true,
+    },
+    {
+        key:"from_url",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"image_url",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"title",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"ts",
+        type : "integer",
+        show_in_list : true,
+    },
+    {
+        key:"channel",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"workspace",
+        type : "string",
+        show_in_list : true,
+    },
+    {
+        key:"text",
+        type : "richtext",
+        show_in_list : true,
+    },
+    {
+        key:"pretext",
+        type : "richtext",
+        show_in_list : true,
+    },
+    {
+        key:"block_ids",
+        type : "array",
+        child_relation:{for_join: true, output_key: "blocks", model: Block, show_in_list: true},
+        show_in_list : true,
+    },
 ];
 
 export class Attachment extends GenericModel {
@@ -16,7 +66,7 @@ export class Attachment extends GenericModel {
     messageCount = 0;
 
     constructor(req: Request) {
-        super('file', {metadata}, req);
+        super('attachment', {metadata}, req);
     }
 
     async saveBatch(payload:any, attachments:Array<any>, workspace){
