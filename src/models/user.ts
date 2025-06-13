@@ -102,6 +102,9 @@ export class User extends GenericModel {
 
     async sendLoginCode(email:string) {
         const code = Math.floor(100000 + Math.random() * 899999).toString();
+        if(!await this._get({email:email}, false)) {
+            return true;
+        }
         try{
             const cacheKey = `auth_code_${email}`;
             setCache(cacheKey, code, 60*5);
