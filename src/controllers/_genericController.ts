@@ -31,6 +31,7 @@ export class GenericController{
     async get(req:Request, res:Response, doResponse = true, session = false) {
         let payload:any = {}
         try {
+            await checkAuth(req);
             payload = this.getPayload();
             const isAdm = req.app.get('isAdm');
             if(session || isAdm){
@@ -60,7 +61,7 @@ export class GenericController{
 
     async list(req:Request, res:Response, doResponse = true, session = false, orderBy?, limit:number|Array<number|null> = [null,null]) {
         try {
-            // await checkAuth(req);
+            await checkAuth(req);
             let payload;
             if(Object.keys(this.payloadOverride).length){
                 payload  = this.payloadOverride;
