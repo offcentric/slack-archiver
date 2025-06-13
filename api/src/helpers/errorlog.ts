@@ -1,8 +1,8 @@
-import {db} from '../db/knex';
-import Exception, { ExceptionInterface } from '../models/exception';
-import ErrorLogInterface from '../interfaces/errorlog';
-import {status} from '../helpers/status';
 import StackTracey from 'stacktracey'
+import {db} from '../db/knex';
+import {status} from '../helpers/status';
+import ErrorLogInterface from '../interfaces/errorlog';
+import Exception, { ExceptionInterface } from '../models/exception';
 
 const getErrorCode = (e:Error|ExceptionInterface) => {
     if(e instanceof Exception){

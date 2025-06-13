@@ -1,7 +1,7 @@
 import { Request } from 'express';
+import {db} from "db/knex";
 import PureDbModel from "../models/_pureDbModel";
 import Metadata from '../interfaces/_metadata';
-import {db} from "db/knex";
 
 const metadata:Array<Metadata> = [
     {

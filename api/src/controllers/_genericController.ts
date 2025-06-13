@@ -1,4 +1,5 @@
 import {checkAuth} from '../helpers/auth';
+import {getDate} from "/helpers/date";
 import {isProductionEnvironment} from '../helpers/env';
 import { returnSuccess, returnError, returnExceptionAsError, handleError, redirect } from '../helpers/response';
 import {getPayload} from '../helpers/payloadFields';
@@ -8,7 +9,6 @@ import GenericModel from '../models/_genericModel';
 import {SaveAction} from '../helpers/data';
 import Exception from '../models/exception';
 import {QueryPayload, SavePayload} from "../payload/_abstract";
-import {getDate} from "helpers/date";
 
 
 export class GenericController{

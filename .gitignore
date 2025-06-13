@@ -9,11 +9,11 @@ yarn-error.log*
 .pnp.js
 
 .vscode/*
-.env
+api/.env
 .idea
 dist
-package-lock.json
+api/package-lock.json
 node_modules
 files
 log
-ecosystem.config.cjs
+api/ecosystem.config.cjs
