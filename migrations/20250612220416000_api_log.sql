@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.api_log
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS public.api_log
-    OWNER to chdb;
+    OWNER to mark;
 
 CREATE INDEX IF NOT EXISTS path
     ON public.api_log USING btree

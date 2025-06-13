@@ -18,4 +18,4 @@ CREATE TABLE IF NOT EXISTS public.user_login
     TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS public.user_login
-    OWNER to chdb;
+    OWNER to mark;
