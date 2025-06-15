@@ -180,7 +180,7 @@ export class Message extends GenericModel{
         }
 
         console.log("SAVING MESSAGE", payload);
-        return await this._addedit({...payload, workspace}, 'add', ['id','ts']);
+        return await this._addedit({...payload, workspace}, 'edit', ['id', 'ts']);
     }
 
     async processBatch(resp, channelName, workspace, doSave) {
