@@ -145,7 +145,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             // console.log("************************* COLLECTION PAYLOAD ["+tableName+"] **************************", params);
             // console.log("************************* COLLECTION PARAMS ["+tableName+"] **************************", filters);
             // console.log("************************* COLLECTION RESPONSE ["+responseFields+"] **************************", filters);
-            console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
+            // console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
             qb.columns(responseFields);
             let resp;
             if(distinct){
@@ -230,7 +230,7 @@ export const addedit = async(tableName:string, params:Record<string, any>, index
             if(action === 'edit' && indexField){
                 st.onConflict([indexField]).merge();
             }
-console.log("****** ADD SQL PARAMS ***************", params);
+// console.log("****** ADD SQL PARAMS ***************", params);
 // console.log("****** ADD SQL ***************", st.insert(params).toString());
             const results = await st.insert(params);
 // console.log("****** ADD SQL RESPONSE ***************", results);
