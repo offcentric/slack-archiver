@@ -27,11 +27,6 @@ const metadata:Array<Metadata> = [
         show_in_list : true,
     },
     {
-        key:"email",
-        type : "string",
-        show_in_list : true,
-    },
-    {
         key:"name",
         type : "string",
         show_in_list : true,
