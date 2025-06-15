@@ -140,7 +140,7 @@ export class Attachment extends GenericModel {
             workspace
         };
         console.log("SAVING ATTACHMENT", payload);
-        return addedit('attachment', payload, 'id');
+        return addedit('attachment', payload, this.indexField,'add', [this.indexField]);
     }
 }
 
