@@ -72,7 +72,7 @@ export const getBy = async(tableName:string, params, joins = [], throwIfMissing 
         // });
         addJoinsToQuery(qb, joins);
         // console.log('QUERY '+tableName, params);
-        console.log("******** GET BY SQL ["+tableName+"] ***************", qb.select(responseFields).toString());
+        // console.log("******** GET BY SQL ["+tableName+"] ***************", qb.select(responseFields).toString());
         const resp: Array<Response> = await qb.select(responseFields);
         // console.log('RESPONSE '+tableName, resp);
         if (resp[0] === undefined){
