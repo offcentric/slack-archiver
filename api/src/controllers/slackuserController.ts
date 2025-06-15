@@ -11,11 +11,15 @@ export class SlackuserController extends GenericController{
         this.model.limit = 500;
     }
     async list(req:Request, res:Response) {
-        await checkAuth(req);
-        return await super.list(req, res);
+        try{
+            await checkAuth(req);
+            return await super.list(req, res);
+        } catch (e) {
+            return this.returnExceptionAsError(res, e);
+        }
     }
-
 }
+
 export const get = async(req:Request, res:Response) => {
     return await (new SlackuserController(req)).get(req, res);
 }
