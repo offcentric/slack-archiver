@@ -92,7 +92,7 @@ export const getBy = async(tableName:string, params, joins = [], throwIfMissing 
     return ret;
 }
 
-export const getCollection = async (tableName:string, params:Record<string, any> = {}, responseFields = null, orderBy?:string|Array<string|Record<string, any>>, joins = [], limit:number|Array<number> = null, distinct = false, cacheTtl:any = false, isAdm = false) => {
+export const getCollection = async (tableName:string, params:Record<string, any> = {}, responseFields = null, orderBy?:string|Array<string|Record<string, any>>, joins = [], limit:number|Array<number> = null, distinct = false, cacheTtl:any = false) => {
     try{
         const cKey = getCacheKey("getCollection", tableName, params, responseFields, orderBy, joins, limit, distinct);
 
@@ -101,7 +101,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
         }
         let ret = await getCache(cKey);
 
-        if(!isAdm && ret !== false){
+        if(ret !== false){
             return ret;
         }
 
@@ -145,14 +145,7 @@ export const getCollection = async (tableName:string, params:Record<string, any>
             // console.log("************************* COLLECTION PAYLOAD ["+tableName+"] **************************", params);
             // console.log("************************* COLLECTION PARAMS ["+tableName+"] **************************", filters);
             // console.log("************************* COLLECTION RESPONSE ["+responseFields+"] **************************", filters);
-            // console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
-            // const keyData = qb.select().toString()+responseFields.toString()+!!distinct;
-            // let ret = null;
-            // ret = await getMemoizedData(keyData);
-            // if(ret !== false){
-            //     return ret;
-            // }
-            // const ret = await qb.select(responseFields).orderBy(orderBy);
+            console.log("****** COLLECTION SQL ***************", qb.select(responseFields).toString());
             qb.columns(responseFields);
             let resp;
             if(distinct){
@@ -184,6 +177,9 @@ export const getCount = async (tableName:string, params:Record<string, any> = {}
             await deleteCache(cKey);
         }
         let ret = await getCache(cKey);
+        if(ret !== false){
+            return ret;
+        }
 
         const send = async () => {
             const filters = paramsToFilters(params, joins);
@@ -234,7 +230,7 @@ export const addedit = async(tableName:string, params:Record<string, any>, index
             if(action === 'edit' && indexField){
                 st.onConflict([indexField]).merge();
             }
-// console.log("****** ADD SQL PARAMS ***************", params);
+console.log("****** ADD SQL PARAMS ***************", params);
 // console.log("****** ADD SQL ***************", st.insert(params).toString());
             const results = await st.insert(params);
 // console.log("****** ADD SQL RESPONSE ***************", results);
@@ -265,7 +261,7 @@ export const addedit = async(tableName:string, params:Record<string, any>, index
         let detail = null;
         if(isDevEnvironment){
             console.error(error);
-            detail = error.message;
+            detail = error;
         }
         if(error instanceof Exception){
             throw error;
@@ -342,7 +338,7 @@ export const softDeleteItem = async(tableName:string, params:any, responseFields
 
 export const hardDeleteItem = async(tableName:string, params:any, responseFields = ['id']) => {
     const send:any = async () => {
-        const resp:any = await db.transaction((t) => {
+        return await db.transaction((t) => {
             const filters = paramsToFilters(params);
             const qb = t(tableName);
             addFiltersToQuery(qb, filters, tableName)

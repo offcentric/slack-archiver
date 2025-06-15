@@ -1,10 +1,7 @@
 export interface UserResponse {
     id?: number,
-    uid?: string,
     email?: string,
-    team_id?:string,
-    workspace?:string,
-    name?:string,
+    workspaces:string[],
 }
 
 export interface UserSession extends UserResponse{

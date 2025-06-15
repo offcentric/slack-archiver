@@ -65,6 +65,7 @@ const metadata:Array<Metadata> = [
         key:"text",
         type : "richtext",
         show_in_list : true,
+        searchable: true,
     },
     {
         key:"file_ids",
@@ -86,67 +87,67 @@ const metadata:Array<Metadata> = [
     },
 ];
 
-export class Message extends GenericModel{
+export class Message extends GenericModel {
     indexField = 'ts';
     messageCount = 0;
     orderBy = ['ts', 'desc'];
     listAll = true;
 
-    constructor(req:Request){
+    constructor(req: Request) {
         super('message', {metadata}, req);
     }
 
-    async getForChannel (workspace, channelName?:string, latest?:number, limit?:number, doSave = false) {
+    async getForChannel(workspace, channelName?: string, latest?: number, limit?: number, doSave = false) {
 
         let ret = [];
-        let resp:any = {messages:[], has_more:true};
+        let resp: any = {messages: [], has_more: true};
         let cursor = null;
         const slack = initSlack(workspace);
 
-        do{
+        do {
             resp = await slack.getMessagesBatch(channelName, cursor, latest, limit);
-            console.log("LOADED "+resp.messages.length+" MESSAGES");
-            if(!resp.messages.length){
-            break;
-        }
+            console.log("LOADED " + resp.messages.length + " MESSAGES");
+            if (!resp.messages.length) {
+                break;
+            }
 
-        // const lastMessage = resp.messages[resp.messages.length-1];
-        // console.log("LAST MESSAGE",lastMessage, getDateTime(lastMessage.ts));
-        await this.processBatch(resp, channelName, workspace, doSave)
-        ret = ret.concat(resp.messages);
-        cursor = resp.response_metadata.next_cursor;
-        console.log("NEXT CURSOR", cursor);
-        }while (resp.has_more === true && limit === null)
+            // const lastMessage = resp.messages[resp.messages.length-1];
+            // console.log("LAST MESSAGE",lastMessage, getDateTime(lastMessage.ts));
+            await this.processBatch(resp, channelName, workspace, doSave)
+            ret = ret.concat(resp.messages);
+            cursor = resp.response_metadata.next_cursor;
+            console.log("NEXT CURSOR", cursor);
+        } while (resp.has_more === true && limit === null)
 
-            console.log("TOTAL MESSAGE COUNT", this.messageCount);
+        console.log("TOTAL MESSAGE COUNT", this.messageCount);
         // console.log("MESSAGES FROM SLACK API", ret);
         return ret;
     }
 
-    async save (message, workspace, channelName, parentId?) {
+    async save(message, workspace, channelName, parentId?) {
         // console.log("MESSAGE", message);
         const attachment = new Attachment(this.request);
         const block = new Block(this.request);
         const file = new File(this.request);
 
-        if(message.subtype === 'message_deleted'){
+        if (message.subtype === 'message_deleted') {
             this.responseFields = ['block_ids', 'file_ids', 'attachment_ids'];
-            const messageData = await this._get({ts:message.deleted_ts}, false);
+            const messageData = await this._get({ts: message.deleted_ts}, false);
 
-            if(!messageData){
+            if (!messageData) {
                 throw new Exception('message_not_found');
             }
             // console.log("SAVED MESSAGE", messageData);
-            if(messageData.block_ids.length){
-                await block._delete({id:messageData.block_ids}, true);
+            if (messageData.block_ids.length) {
+                await block._delete({id: messageData.block_ids}, true);
             }
-            if(messageData.file_ids.length){
-                await file._delete({id:messageData.file_ids}, true);
+            if (messageData.file_ids.length) {
+                await file._delete({id: messageData.file_ids}, true);
             }
-            if(messageData.attachment_ids.length){
-                await attachment._delete({id:messageData.attachment_ids}, true);
+            if (messageData.attachment_ids.length) {
+                await attachment._delete({id: messageData.attachment_ids}, true);
             }
-            await this._delete({id:messageData.deleted_ts}, true);
+            await this._delete({id: messageData.deleted_ts}, true);
         }
 
         const payload = {
@@ -160,8 +161,8 @@ export class Message extends GenericModel{
             text: message.text,
             attachment_ids: {},
             file_ids: {},
-            block_ids:{},
-            reply_to:parentId
+            block_ids: {},
+            reply_to: parentId
         };
 
         if (message.attachments) {
@@ -189,30 +190,30 @@ export class Message extends GenericModel{
 
             // console.log("MESSAGE", message, getDateTime(message.ts));
 
-            if(message.type !== 'message' && !message.client_msg_id && !message.files){
+            if (message.type !== 'message' && !message.client_msg_id && !message.files) {
                 console.log("SKIPPING", message);
                 continue;
             }
             this.messageCount++;
 
 
-            if(doSave) {
+            if (doSave) {
                 await this.save(message, workspace, channelName)
-            }else{
+            } else {
                 console.log("MESSAGE LOADED", message);
             }
 
-            if(message.reply_count){
+            if (message.reply_count) {
                 const replies = await slack.getRepliesForMessage(channelName, message.ts);
-                for(let reply of replies.messages) {
-                    if(reply.reply_count || !reply.client_msg_id){
+                for (let reply of replies.messages) {
+                    if (reply.reply_count || !reply.client_msg_id) {
                         continue;
                     }
                     this.messageCount++;
 
                     // console.log("REPLY", reply.text, getDateTime(reply.ts));
 
-                    if(doSave) {
+                    if (doSave) {
                         await this.save(reply, workspace, channelName, message.ts)
                     }
                 }
@@ -220,5 +221,10 @@ export class Message extends GenericModel{
         }
     }
 
+    async enrichItem(item) {
+        if (this.showExtendedData('replies')) {
+            const replies = (await this._getCollection({reply_to: item.ts}, ['ts'])).items;
+            item.replies = replies;
+        }
+    }
 }
-

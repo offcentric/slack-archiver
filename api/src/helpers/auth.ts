@@ -11,11 +11,9 @@ import {LocationHelper} from "helpers/location";
 export interface SessionStore{
     session_id:string,
     ip_address: string,
-    role: number,
     email: string,
-    uuid: string,
-    token: string,
-    user_id: number
+    user_id: number,
+    workspaces: string[],
     cookie?:Record<string, any>
 }
 
@@ -23,10 +21,7 @@ export const createSession = async(req:Request, userData:UserSession):Promise<st
     const session = req.session;
     const locationHelper = new LocationHelper(req);
     session.email = userData.email;
-    session.uid = userData.uid;
-    session.workspace = userData.workspace;
-    session.team_id = userData.team_id;
-    session.name = userData.name;
+    session.workspaces = userData.workspaces;
     session.ip_address = locationHelper.getIpAddress();
     session.session_id = req.sessionID;
     req.session.save();
@@ -90,11 +85,10 @@ export const clearSessionStore = async(req):Promise<boolean> => {
     });
 }
 
-export const checkAuth = async (req):Promise<boolean> => {
+export const checkAuth = async (req):Promise<SessionStore> => {
     let userId, userRole;
     const session = await getSessionStore(req);
     userId = session.user_id;
-    userRole = session.role;
 
     const payloadUserId = typeof req.body.user_id === 'string' ? parseInt(req.body.user_id) : req.body.user_id;
 
@@ -102,12 +96,12 @@ export const checkAuth = async (req):Promise<boolean> => {
         // only staff users are allowed to edit other users than themselves
         throw new Exception('session_user_mismatch', status.unauthorized);
     }
-    return true;
+    return session;
 }
 
 const getSessionIdFromRequest = (req) => {
     let sessionId = req.body['session_id'];
-    if(!sessionId && req.headers['authorization'] && req.headers['authorization'].startsWith('CH-User-Session-Token ')) {
+    if(!sessionId && req.headers['authorization'] && req.headers['authorization'].startsWith('CH-Slackuser-Session-Token ')) {
         sessionId = req.headers['authorization'].split(' ')[1];
     }
     return sessionId

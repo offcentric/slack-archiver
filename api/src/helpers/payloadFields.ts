@@ -14,7 +14,7 @@ const AllFields = {
     'user': UserFields,
 };
 
-export const getPayload = (req:Request, forContentful = false, bodyOverride?:Record<string, any>) => {
+export const getPayload = (req:Request, bodyOverride?:Record<string, any>) => {
     let path: string;
 
     if(req.originalUrl.indexOf('.websocket') !== -1){
@@ -24,16 +24,16 @@ export const getPayload = (req:Request, forContentful = false, bodyOverride?:Rec
     }
 
     const body = bodyOverride ?? req.body
-    const fields:Array<PayloadItemInterface> = getPayloadFields(path, forContentful);
+    const fields:Array<PayloadItemInterface> = getPayloadFields(path);
     return processPayload(req, fields, body)
 }
 
-export const getPayloadForPath = (req: Request, path: string, body: Record<string, any>, forContentful = false) => {
-    const fields:Array<PayloadItemInterface> = getPayloadFields(path, forContentful);
+export const getPayloadForPath = (req: Request, path: string, body: Record<string, any>) => {
+    const fields:Array<PayloadItemInterface> = getPayloadFields(path);
     return processPayload(req, fields, body)
 }
 
-export const getPayloadFields = (path:string, forContentful = false):Array<PayloadItemInterface> => {
+export const getPayloadFields = (path:string):Array<PayloadItemInterface> => {
     let endpoint, idx;
     const regexIdx = new RegExp(/[a-z0-9]+/i);
 
@@ -48,7 +48,7 @@ export const getPayloadFields = (path:string, forContentful = false):Array<Paylo
     }
 
     const api = pathParts.shift();
-    endpoint = forContentful ? 'contentful' : pathParts.shift().toLowerCase();
+    endpoint = pathParts.shift().toLowerCase();
 
     if(pathParts.length){
         if(regexIdx.test(pathParts[0])){

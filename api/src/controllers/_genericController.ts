@@ -1,5 +1,5 @@
 import {checkAuth} from '../helpers/auth';
-import {getDate} from "/helpers/date";
+import {getDate} from "../helpers/date";
 import {isProductionEnvironment} from '../helpers/env';
 import { returnSuccess, returnError, returnExceptionAsError, handleError, redirect } from '../helpers/response';
 import {getPayload} from '../helpers/payloadFields';
@@ -24,8 +24,8 @@ export class GenericController{
         this.isAdm = req.app ? req.app.get('isAdm') : false;
     }
 
-    getPayload(forContentful = false, bodyOverride?:Record<string, any>) : SavePayload & QueryPayload {
-        return getPayload(this.req, forContentful, bodyOverride);
+    getPayload(bodyOverride?:Record<string, any>) : SavePayload & QueryPayload {
+        return getPayload(this.req, bodyOverride);
     }
 
     async get(req:Request, res:Response, doResponse = true, session = false) {
@@ -61,10 +61,9 @@ export class GenericController{
 
     async list(req:Request, res:Response, doResponse = true, session = false, orderBy?, limit:number|Array<number|null> = [null,null]) {
         try {
-            await checkAuth(req);
             let payload;
             if(Object.keys(this.payloadOverride).length){
-                payload  = this.payloadOverride;
+                payload  = {...this.getPayload(), ...this.payloadOverride};
             }else{
                 payload = this.getPayload();
             }
@@ -72,24 +71,41 @@ export class GenericController{
                 throw new Exception('missing_list_filter')
             }
 
-            if (req.body._orderby) {
-                orderBy = req.body._orderby
-            }
-            if (!orderBy && this.model.indexField) {
-                orderBy = [this.model.indexField, 'DESC'];
-            }
-            if (req.body._limit) {
-                limit = req.body._limit
-            }
-            if (req.body._page) {
-                if(typeof limit === 'number') {
-                    limit = [limit, (req.body._page-1) * limit];
-                }
-            }
+            const  {orderBy, limit} = this.getOrderByAndLimit(req);
             const ret = await this.model._getCollection(payload, orderBy, limit, true);
             return this.returnSuccess(res, ret, doResponse);
         } catch (e) {
             return this.returnExceptionAsError(res, e, doResponse);
+        }
+    }
+
+    getOrderByAndLimit(req:Request) {
+        let orderBy, limit;
+        if (req.body._orderby) {
+            orderBy = req.body._orderby
+        }
+        if (!orderBy && this.model.indexField) {
+            orderBy = [this.model.indexField, 'DESC'];
+        }
+        if (req.body._limit) {
+            limit = req.body._limit
+        }
+        if (req.body._page) {
+            if(typeof limit === 'number') {
+                limit = [limit, (req.body._page-1) * limit];
+            }
+        }
+        return {orderBy, limit};
+    }
+
+    async search(req:Request, res:Response) {
+        try {
+            // await checkAuth(req);
+            const payload = this.getPayload();
+            const ret = await this.model._search(payload.q, payload.limit, payload.page);
+            return this.returnSuccess(res, ret);
+        } catch (e) {
+            return this.returnExceptionAsError(res, e);
         }
     }
 
@@ -104,14 +120,26 @@ export class GenericController{
         }
     }
 
-    handleDateFilter(res, dateField = 'created_at') {
-        const payload = this.getPayload();
-        payload[dateField] = [];
+    handleWorkspaceFilter(res, payload, sessionData){
+        if(payload.workspace){
+            if(!sessionData.workspaces.includes(payload.workspace)){
+                throw new Exception('no_access_to_workspace', status.forbidden);
+            }
+            payload.workspace = [payload.workspace];
+        }else{
+            payload.workspace =  sessionData.workspaces;
+        }
+    }
 
+    handleDateFilter(res, payload,dateField = 'created_at') {
+        if(!payload.date_from && !payload.date_to){
+            return;
+        }
+        payload[dateField] = [];
         if(payload.date_from){
             const dateFrom = new Date(payload.date_from);
             if(isNaN(dateFrom.getTime())) {
-                return this.returnError(res, 'invalid_date_from');
+                throw new Exception('invalid_date_from', status.bad);
             }
             payload[dateField].push({'>=': getDate(dateFrom)});
             delete payload.date_from;
@@ -119,13 +147,11 @@ export class GenericController{
         if(payload.date_to){
             const dateTo = new Date(payload.date_to);
             if(isNaN(dateTo.getTime())) {
-                return this.returnError(res, 'invalid_date_to');
+                throw new Exception('invalid_date_to', status.bad);
             }
             payload[dateField].push({'<=': getDate(dateTo)});
             delete payload.date_to;
         }
-
-        this.payloadOverride = payload;
     }
 
     async metadata(req:Request, res:Response) {

@@ -3,7 +3,6 @@ import * as controller from '../controllers/userController';
 
 const router = express.Router({mergeParams: true});
 
-router.post('/list', controller.list);
 router.post('/sendlogincode', controller.sendlogincode);
 router.post('/login', controller.login);
 router.post('/logout', controller.logout);

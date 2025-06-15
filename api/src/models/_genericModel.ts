@@ -14,6 +14,7 @@ import {
 } from '../helpers/data';
 import {getNow} from "helpers/date";
 import {getPayloadForPath} from "helpers/payloadFields";
+import {search} from '../helpers/search';
 import {status} from '../helpers/status';
 import ApiObject from "../interfaces/_apiobject";
 import Generic from "interfaces/_generic";
@@ -83,13 +84,9 @@ export default class GenericModel{
         this.isAdm = this.request?.app?.get('isAdm') || false;
     }
 
-    async initCMS(){
-        return false;
-    }
+    async enrichItem(_item){}
 
-    async enrichItem(item){}
-
-    processCollectionData(items){}
+    processCollectionData(_items){}
 
     async _load(uid:string, key = null, detail = false):Promise<ApiObject>{
         if(!key){
@@ -161,7 +158,7 @@ export default class GenericModel{
         }
         this.detail = detail;
         const viewOrTable = this.viewNameList ? this.viewNameList : this.tableName;
-        const items = await getCollection(viewOrTable, this.collectionParams, responseFields, this.orderBy, joins, this.limit, distinct, cacheTtl, this.isAdm);
+        const items = await getCollection(viewOrTable, this.collectionParams, responseFields, this.orderBy, joins, this.limit, distinct, cacheTtl);
         for(const item of items){
             await this.enrichItem(item);
         }
@@ -175,6 +172,11 @@ export default class GenericModel{
             ret.page = Array.isArray(limit) && limit[1] ? limit[1]/limit[0]+1 : 1;
         }
         return ret;
+    }
+
+    async _search(searchStr:string, limit?:number, page?:number):Promise<Array<any>>{
+        const fields  = this.metadata.filter((item:Metadata) => item.searchable).map((item:Metadata) => item.key);
+        return await search(this.tableName, fields, searchStr, limit, page);
     }
 
     async getField(fieldName:string, payload:QueryPayload){
@@ -535,62 +537,6 @@ export default class GenericModel{
         }else{
             return indexVal;
         }
-    }
-
-    async generateCode(data:ApiObject, uid?: string){
-        let code = this.codePrefix;
-        code += this.generateCodePart(data.title)
-        code = await this.addIndexToCode(code, uid);
-        return code;
-    }
-
-    async generateCodeByUid(uid:string, overwrite = false){
-        const data:any = await this._get({uid}, false);
-        if(!data){
-            return null;
-        }
-        if(data.code && !overwrite){
-            return data.code;
-        }
-        return await this.generateCode(data);
-    }
-
-    generateCodePart(...args){
-        let part = '';
-        for(const key of args){
-            if(!key){
-                continue;
-            }
-            if(key && typeof key === 'string') {
-                part += key.toUpperCase().replace(/[-_ ]/g, '').substring(0, 10);
-            }else if(key && typeof key === 'number'){
-                part += (key+'').replace('.','').substring(0, 10);
-            }else{
-                part += key;
-            }
-            part += '-';
-        }
-        return part ? '_' + part.substring(0, part.length - 1) : '';
-    }
-
-    async addIndexToCode(code:string, uid?: string){
-        let check = true;
-        let index = 0;
-        const originalCode = code;
-
-        while(check){
-            if(index){
-                code = originalCode+':'+index;
-            }
-            const params:any = {code};
-            if(uid){
-                params.uid = {'!=': uid};
-            }
-            const {items} = await this._getCollection(params, [], 1);
-            check = items.length > 0;
-            index++;
-        }
-        return code;
     }
 
     async _delete(params:Record<string, unknown>, hard = false){
