@@ -12,8 +12,11 @@ export class SlackuserController extends GenericController{
     }
     async list(req:Request, res:Response) {
         try{
-            await checkAuth(req);
-            return await super.list(req, res);
+            const sessionData = await checkAuth(req);
+            const payload = this.getPayload();
+            this.handleWorkspaceFilter(res, payload, sessionData);
+            const ret = await this.model._getCollection(payload);
+            return this.returnSuccess(res, ret);
         } catch (e) {
             return this.returnExceptionAsError(res, e);
         }

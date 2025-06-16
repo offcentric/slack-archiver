@@ -468,7 +468,7 @@ export const addJoinsToQuery = (qb:Knex.QueryBuilder, joins) => {
             if(el.lateral){
                 const alias = `"${i}"`;
                 qb.joinRaw(`LEFT JOIN LATERAL (SELECT json_agg(${alias}) AS ${el.as} FROM "${el.table}" ${alias} WHERE ${alias}.${el.first} = ${el.second}) ${el.table} ON TRUE`);
-                qb.column(db.raw(`COALESCE(${el.table}.${el.as}, '[]') AS ${el.as}`));
+                qb.column(db.raw(`COALESCE("${el.table}"."${el.as}", '[]') AS "${el.as}"`));
             }else{
                 qb.joinRaw(`LEFT JOIN "${el.table}" ${el.as?'"'+el.as+'"':''} ON ${el.first} = ${el.second}`);
             }

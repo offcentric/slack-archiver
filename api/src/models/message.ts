@@ -1,12 +1,13 @@
 import { Request } from 'express';
 import Metadata from '../interfaces/_metadata';
 import {getDateTime} from "../helpers/date";
+import GenericModel from "models/_genericModel";
 import {Attachment} from "../models/attachment";
 import {File} from "../models/file";
 import {Block} from "../models/block";
 import Exception from "../models/exception";
+import {Slackuser} from "models/slackuser";
 import {initSlack}  from '../providers/slack';
-import GenericModel from "models/_genericModel";
 
 const metadata:Array<Metadata> = [
     {
@@ -29,6 +30,7 @@ const metadata:Array<Metadata> = [
     {
         key:"user",
         type : "string",
+        child_relation:{for_join: true, output_key: "slackuser", model: Slackuser, outfield:"uid",show_in_list: true},
         show_in_list : true,
     },
     {

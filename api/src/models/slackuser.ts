@@ -67,7 +67,7 @@ export class Slackuser extends GenericModel {
 
     async save(payload, workspace) {
         this.workspace = workspace;
-        console.log("SAVE FILE", payload);
+        console.log("SAVE USER", payload);
         return await this._addedit(payload, 'add', ['uid']);
     }
 }

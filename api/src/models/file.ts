@@ -160,7 +160,7 @@ export class File extends GenericModel {
         const arrayBuffer = await blob.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const fileName = file.title.replace(/^https?:\/\//, '').replaceAll('/','-')+'--'+file.id+'.'+file.filetype;
-        const downloadDir = getEnvConfig('FILES_DOWNLOAD_DIRECTORY', 'files') + '/' + workspace;
+        const downloadDir = getEnvConfig('FILES_DOWNLOAD_DIRECTORY', '../files') + '/' + workspace;
 
         if(!fs.existsSync(downloadDir)){
             fs.mkdirSync(downloadDir);
@@ -180,6 +180,6 @@ export class File extends GenericModel {
     async save(payload, workspace) {
         this.workspace = workspace;
         console.log("SAVE FILE", payload);
-        return await this._addedit(payload, 'add', ['uid','id']);
+        return await this._addedit(payload, 'edit', ['uid','id']);
     }
 }
