@@ -179,7 +179,7 @@ export class File extends GenericModel {
 
     async save(payload, workspace) {
         this.workspace = workspace;
-        console.log("SAVE FILE", payload);
+        // console.log("SAVE FILE", payload);
         return await this._addedit(payload, 'edit', ['uid','id']);
     }
 }

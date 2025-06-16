@@ -149,7 +149,7 @@ export class Message extends GenericModel {
             if (messageData.attachment_ids.length) {
                 await attachment._delete({id: messageData.attachment_ids}, true);
             }
-            await this._delete({id: messageData.deleted_ts}, true);
+            await this._delete({ts: messageData.deleted_ts}, true);
         }
 
         const payload = {
