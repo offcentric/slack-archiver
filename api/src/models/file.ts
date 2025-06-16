@@ -73,7 +73,7 @@ const metadata:Array<Metadata> = [
 ];
 
 export class File extends GenericModel {
-    indexField = 'id';
+    indexField = 'uid';
     messageCount = 0;
     listAll = true;
     constructor(req: Request) {
