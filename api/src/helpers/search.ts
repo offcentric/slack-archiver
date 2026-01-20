@@ -1,6 +1,6 @@
 import {db} from '../db/knex';
 
-export const search = async (tableName:string, searchFields:string[], searchStr:string, limit:number = 20, page:number = 0) => {
+export const search = async (tableName:string, searchFields:string[], searchStr:string, limit:number = 20, page:number = 1) => {
     if(!searchFields || !searchFields.length) {
         throw new Error("no_searchfields_specified");
     }

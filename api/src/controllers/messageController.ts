@@ -16,8 +16,10 @@ export class MessageController extends GenericController{
             const sessionData = await checkAuth(req);
             const payload = this.getPayload();
             this.handleWorkspaceFilter(res, payload, sessionData);
+            if(payload.channel === ''){
+                delete payload.channel;
+            }
             this.handleDateFilter(res, payload, 'datetime');
-            console.log("PAYLOAD", payload);
             const  {orderBy, limit} = this.getOrderByAndLimit(req);
             const ret = await this.model._getCollection(payload, orderBy, limit, true);
             console.log("LIST MESSAGES", ret);

@@ -72,6 +72,7 @@ export class User extends GenericModel {
             console.log("CACHED CODE 1", cacheKey, getCache(cacheKey));
             await sendMail(email, 'Slack Archiver login code', `<p>Hi,</p><p>Your login code is: <strong>${code}</strong></p><p>It will be valid for 5 minutes.</p>`, "html");
         }catch(e){
+            console.error(e);
             throw new Exception('failed_to_send_code', e);
         }
         return true;
