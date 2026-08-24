@@ -5,7 +5,7 @@ import Exception from '../models/exception';
 import ExceptionMuted from "../models/exceptionmuted";
 import {addedit} from "helpers/data";
 import {Request} from "express";
-import {UserSession} from "interfaces/user";
+import {UserSession, WorkspaceIdentity} from "interfaces/user";
 import {LocationHelper} from "helpers/location";
 
 export interface SessionStore{
@@ -13,7 +13,7 @@ export interface SessionStore{
     ip_address: string,
     email: string,
     user_id: number,
-    workspaces: string[],
+    workspaces: Array<string | WorkspaceIdentity>,
     cookie?:Record<string, any>
 }
 
@@ -21,6 +21,7 @@ export const createSession = async(req:Request, userData:UserSession):Promise<st
     const session = req.session;
     const locationHelper = new LocationHelper(req);
     session.email = userData.email;
+    session.user_id = userData.id;
     session.workspaces = userData.workspaces;
     session.ip_address = locationHelper.getIpAddress();
     session.session_id = req.sessionID;
@@ -28,9 +29,21 @@ export const createSession = async(req:Request, userData:UserSession):Promise<st
     return req.sessionID;
 }
 
+export const getSessionIdFromRequest = (req: Request): string | undefined => {
+    const header = req.headers['authorization'];
+    if (typeof header !== 'string') {
+        return undefined;
+    }
+    const match = header.match(/^Bearer\s+(\S+)/i);
+    return match ? match[1] : undefined;
+};
+
 export const getSessionStore = async (req):Promise<SessionStore> => {
     try{
         const sessionId = getSessionIdFromRequest(req);
+        if(!sessionId){
+            throw new ExceptionMuted('no_session', status.unauthorized);
+        }
         return await new Promise((resolve, reject) => {
             req.sessionStore.get(sessionId, (err, session:SessionStore) => {
                 if(err){
@@ -97,14 +110,6 @@ export const checkAuth = async (req):Promise<SessionStore> => {
         throw new Exception('session_user_mismatch', status.unauthorized);
     }
     return session;
-}
-
-const getSessionIdFromRequest = (req) => {
-    let sessionId = req.body['session_id'];
-    if(!sessionId && req.headers['authorization'] && req.headers['authorization'].startsWith('CH-Slackuser-Session-Token ')) {
-        sessionId = req.headers['authorization'].split(' ')[1];
-    }
-    return sessionId
 }
 
 export const checkNoSession = async (req, throwOnSesssion = false):Promise<boolean> => {

@@ -1,12 +1,15 @@
 import {GenericController} from '../controllers/_genericController';
 import {Request, Response} from "../interfaces/controller";
 import {User} from '../models/user';
-import {addToIpBlacklist, checkAuth, checkNoSession, createSession} from "helpers/auth";
+import {addToIpBlacklist, checkAuth, checkNoSession, createSession, getSessionStore} from "helpers/auth";
 import {getEnvConfig} from "helpers/config";
 import {LocationHelper} from "helpers/location";
 import {getDateTime} from "helpers/date";
 import {UserLogin} from "models/user_login";
 import {status, successMessage} from "helpers/status";
+import {getWorkspaceNames, getWorkspaceUid} from "interfaces/user";
+import {Slackuser} from "models/slackuser";
+import Exception from "models/exception";
 
 export class UserController extends GenericController{
     tableName = 'user';
@@ -22,7 +25,9 @@ export class UserController extends GenericController{
             await checkNoSession(req, false);
             const payload = this.getPayload();
             try{
-                const userData = await this.model.authenticate(payload.email, parseInt(payload.code));
+                const userData = await this.model.enrichUserResponse(
+                    await this.model.authenticate(payload.email, parseInt(payload.code))
+                );
                 const sessionId = await createSession(req, userData);
                 this.logLogin(req, res, payload, true);
                 return this.returnSuccess(res, {...userData, session_id:sessionId});
@@ -54,6 +59,44 @@ export class UserController extends GenericController{
                 return this.handleError(res, e);
             }
             return this.returnSuccess(res, {...successMessage, ...{status:'logged_out'}});
+        }
+    }
+
+    async getUserData(req:Request, res:Response){
+        try{
+            await checkAuth(req);
+            const sessionData = await getSessionStore(req)
+            const userData = await this.model.enrichUserResponse(
+                await this.model._get({email:sessionData.email})
+            );
+            return this.returnSuccess(res, {userData});
+        }catch(e){
+            if(e.message !== 'no_session'){
+                return this.handleError(res, e);
+            }
+            return this.returnSuccess(res, {...successMessage, ...{status:'logged_out'}});
+        }
+    }
+
+    async getChannels(req:Request, res:Response){
+        try{
+            const sessionData = await checkAuth(req);
+            const payload = this.getPayload();
+            const allowed = getWorkspaceNames(sessionData.workspaces);
+            if(!allowed.includes(payload.workspace)){
+                throw new Exception('no_access_to_workspace', status.forbidden);
+            }
+
+            let uid = getWorkspaceUid(sessionData.workspaces, payload.workspace);
+            if(!uid && sessionData.user_id){
+                const identities = await (new Slackuser(req)).findIdentitiesForUserId(sessionData.user_id);
+                uid = getWorkspaceUid(identities, payload.workspace);
+            }
+
+            const items = uid ? await this.model.getChannels(payload.workspace, uid) : [];
+            return this.returnSuccess(res, {items});
+        }catch(e){
+            return this.returnExceptionAsError(res, e);
         }
     }
 
@@ -96,4 +139,12 @@ export const login = async(req:Request, res:Response) => {
 
 export const logout = async(req:Request, res:Response) => {
     return await (new UserController(req)).logout(req, res);
+}
+
+export const getuserdata = async(req:Request, res:Response) => {
+    return await (new UserController(req)).getUserData(req, res);
+}
+
+export const getchannels = async(req:Request, res:Response) => {
+    return await (new UserController(req)).getChannels(req, res);
 }

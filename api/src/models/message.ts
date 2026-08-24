@@ -8,6 +8,7 @@ import {Block} from "../models/block";
 import Exception from "../models/exception";
 import {Slackuser} from "models/slackuser";
 import {initSlack}  from '../providers/slack';
+import {db} from '../db/knex';
 
 const metadata:Array<Metadata> = [
     {
@@ -227,5 +228,16 @@ export class Message extends GenericModel {
             const replies = (await this._getCollection({reply_to: item.ts}, ['ts'])).items;
             item.replies = replies;
         }
+    }
+
+    async getChannelsForUser(workspace: string, uid: string): Promise<string[]> {
+        const rows = await db(this.tableName)
+            .where('workspace', workspace)
+            .andWhere('user', uid)
+            .whereNotNull('channel')
+            .groupBy('channel')
+            .orderBy('channel', 'asc')
+            .select('channel');
+        return rows.map((row) => row.channel).filter(Boolean);
     }
 }

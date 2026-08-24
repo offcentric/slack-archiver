@@ -26,7 +26,7 @@ Express API (api/)  ──►  PostgreSQL (slack_archive)
 - **Realtime ingest:** Slack Events API → `POST /webhook?workspace=<name>`.
 - **Retroactive ingest:** `npm run saveMessages -- <workspace> <channel>` in `api/`.
 - **Read path:** authenticated REST for a future custom UI (or any client).
-- **Multi-workspace:** one API instance; each Slack team has its own env token block. App users get a `workspaces` string array that is the ACL.
+- **Multi-workspace:** one API instance; each Slack team has its own env token block. App users are linked to Slack people via `slackuser.user_id`. Login returns those rows as `workspaces[]` (`workspace`, `uid`, `name`, `real_name`, …).
 
 ## Tech stack
 
@@ -77,9 +77,9 @@ attachment.block_ids[] → block.id
 
 **`block`** — subset of Block Kit; only `image` and `link` types are persisted.
 
-**`slackuser`** — people in Slack (`uid`, `name`, `real_name`, `is_bot`, `workspace`). Not app accounts.
+**`slackuser`** — people in Slack (`uid`, `name`, `real_name`, `is_bot`, `workspace`, optional `user_id` → app `user.id`). Not app accounts. Login/getuserdata load every `slackuser` row with `user_id` equal to the session user.
 
-**`user`** — app accounts: `email` unique, `role` int, `workspaces` `varchar[]`. Login is email + 6-digit code (no passwords).
+**`user`** — app accounts: `email` unique, `role` int, `workspaces` `varchar[]` of workspace names. Login is email + 6-digit code (no passwords). API `workspaces` on login/getuserdata is **not** that column; it is the linked `slackuser` rows (`slackuser.user_id = user.id`).
 
 Also: `user_session`, `user_login`, `api_log`, `error_log`. Code also reads `ip_blacklist` (no migration in repo).
 
@@ -112,26 +112,41 @@ Base URL is the Express port (`PORT`, template `6969`). JSON in/out. Prefer **PO
 ### Auth
 
 1. `POST /user/sendlogincode` `{ email }` — if the email exists, Mailgun sends a 6-digit code cached 5 minutes (`auth_code_${email}`). Unknown emails still return success (no enumeration).
-2. `POST /user/login` `{ email, code }` — returns the **user row plus** `session_id`:
+2. `POST /user/login` `{ email, code }` — returns the **user row plus** `session_id`. `workspaces` is an array of Slack identities (not bare names):
 
 ```json
-{ "id": 1, "email": "a@b.c", "role": 1, "workspaces": ["acme"], "session_id": "…" }
+{
+  "id": 1,
+  "email": "a@b.c",
+  "role": 1,
+  "name": "alice",
+  "real_name": "Alice Example",
+  "workspaces": [
+    { "workspace": "acme", "uid": "U012ABCDEF", "name": "alice", "real_name": "Alice Example" }
+  ],
+  "session_id": "…"
+}
 ```
 
-3. Every authenticated call must send `session_id` in the **JSON body**, or header `Authorization: CH-Slackuser-Session-Token <session_id>`. Cookies exist (`user_session`) but clients should not rely on them.
-4. `POST /user/logout` `{ session_id }`.
+Each identity is a `slackuser` row with `user_id` set to this app user (`SELECT * FROM slackuser WHERE user_id = user.id`). `uid` is stored on the session at login so a client can filter messages with `user`. `name` / `real_name` on the user object are copied from the first linked identity.
+3. `POST /user/getuserdata` — Bearer token, no body. Same profile nested as `{ "userData": { … } }`.
+4. `POST /user/getchannels` `{ workspace }` — Bearer token. Distinct `message.channel` values where `message.user` is the session Slack `uid` for that workspace. `403` if the workspace is not on the session ACL.
+5. Every authenticated call must send `Authorization: Bearer <session_id>`. Do not send `session_id` in the JSON body. Cookies exist (`user_session`) but clients should not rely on them.
+6. `POST /user/logout` — Bearer token, no body.
 
-Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is omitted, results are limited to `session.workspaces`. If set, it must be in that list or the API returns 403 `no_access_to_workspace`.
+Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is omitted, results are limited to `session.workspaces[].workspace`. If set, it must match one of those names or the API returns 403 `no_access_to_workspace`.
 
 `GET /health` and the webhook are unauthenticated. **`POST /message/search` currently has `checkAuth` commented out** — treat as a gap, not a feature; lock it down when touching search.
 
 ### Endpoints
 
-| Method | Path | Auth | Body (besides `session_id`) | Response |
+| Method | Path | Auth | Body | Response |
 |--------|------|------|-----------------------------|----------|
 | GET | `/health` | no | — | `{ "status": "ok" }` |
 | POST | `/user/sendlogincode` | no | `email` | success/error envelope |
-| POST | `/user/login` | no | `email`, `code` | user row + `session_id` |
+| POST | `/user/login` | no | `email`, `code` | user row + `session_id`; `workspaces[]` are `{ workspace, uid, name, real_name }` |
+| POST | `/user/getuserdata` | yes | — | `{ userData }` (same profile as login, no `session_id`) |
+| POST | `/user/getchannels` | yes | `workspace` | `{ items }` — distinct channel names the user has posted in |
 | POST | `/user/logout` | yes | — | logged-out envelope |
 | POST/GET | `/message/list` | yes | `workspace?`, `channel?`, `user?`, `date_from?`, `date_to?`, `_orderby?`, `_limit?`, `_page?` | paginated `{ items, totalitems, totalpages, page }` |
 | POST | `/message/get` | yes | `id` **or** `ts`; `simple?` | one message; nested `slackuser`, `files`, `attachments`, `blocks`, `replies` |
@@ -158,7 +173,7 @@ Common `message` strings: `auth_fail`, `no_access_to_workspace`, `missing_requir
 
 `returnSuccess` uses `res.send`; health uses `res.json`. HTTP codes live in `api/src/helpers/status.ts`.
 
-A future client should persist `session_id` + `workspaces`, send `session_id` on every authenticated call, and either pass a `workspace` the user is allowed to see or omit it to query all of them. Serving archived binaries will need a new authenticated file endpoint (none exists).
+A future client should persist `session_id` + `workspaces` (including each `uid`), send `Authorization: Bearer <session_id>` on every authenticated call, and either pass a `workspace` name the user is allowed to see or omit it to query all of them. Load the channel sidebar with `POST /user/getchannels`. Filter that person's messages with `user` set to `workspaces[].uid` for the selected workspace. Serving archived binaries will need a new authenticated file endpoint (none exists).
 
 ## Conventions for new API work
 

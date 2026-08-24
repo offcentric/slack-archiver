@@ -6,5 +6,6 @@ const router = express.Router({mergeParams: true});
 router.post('/sendlogincode', controller.sendlogincode);
 router.post('/login', controller.login);
 router.post('/logout', controller.logout);
-
+router.post('/getuserdata', controller.getuserdata);
+router.post('/getchannels', controller.getchannels);
 export default router;
