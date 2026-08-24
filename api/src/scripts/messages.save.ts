@@ -3,9 +3,9 @@ import {parseFlags} from "helpers/script";
 import {Message} from "models/message";
 import process from "node:process";
 
-const messagesSave = async (workspace:string, channelName?:string, latest?:number, limit?:number) => {
+const messagesSave = async (workspace:string, channelName?:string, latest?:number, oldest?: number, limit?:number) => {
     
-    await (new Message(express.request)).getForChannel(workspace, channelName, latest, limit, true);
+    await (new Message(express.request)).getForChannel(workspace, channelName, latest, oldest, limit, true);
     process.exit();
 }
 
@@ -14,8 +14,8 @@ if (process.argv.length > 2) {
     if(process.argv.length > 3){
         const channel = process.argv[3];
         // parse flags
-        const {latest, limit} = parseFlags(process.argv);
-        const ret = await messagesSave(workspace, channel, latest, limit);
+        const {latest, oldest, limit} = parseFlags(process.argv);
+        const ret = await messagesSave(workspace, channel, latest, oldest, limit);
         console.log(ret);
     }else{
         console.error('Missing channel');

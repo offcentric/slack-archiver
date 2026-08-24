@@ -2,8 +2,8 @@ import process from "node:process";
 
 export const parseFlags = (args) => {
     const flagsArr = args.slice(4);
-    const allowedFlags = ['-latest','-limit'];
-    let latest, limit = null;
+    const allowedFlags = ['--latest','--oldest', '--limit'];
+    let latest, oldest, limit = null;
 
     for(let i=0; i <flagsArr.length; i++){
         const flagName = flagsArr[i];
@@ -14,10 +14,13 @@ export const parseFlags = (args) => {
                 process.exit(1);
             }else{
                 switch(flagName){
-                    case '-latest':
+                    case '--latest':
                         latest = flagVal;
                         break;
-                    case '-limit':
+                    case '--oldest':
+                        oldest = flagVal;
+                        break;
+                    case '--limit':
                         limit = parseInt(flagVal);
                         break;
                 }
@@ -28,6 +31,6 @@ export const parseFlags = (args) => {
             process.exit(1);
         }
     }
-    const ret = {latest, limit};
+    const ret = {latest, oldest, limit};
     return ret;
 }

@@ -117,7 +117,7 @@ export class Attachment extends GenericModel {
                 slack = initSlack(currentWorkspace);
             }
 
-            const resp = await slack.getMessagesBatch(message.channel, null, null, message.ts);
+            const resp = await slack.getMessagesBatch(message.channel, message.ts);
             if(!resp.messages.length){
                 continue;
             }

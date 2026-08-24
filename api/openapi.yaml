@@ -1,0 +1,1552 @@
+openapi: 3.0.3
+info:
+  title: Slack Archiver REST API
+  version: 1.0.0
+  contact:
+    name: Slack Archiver
+    url: https://github.com/offcentric/slack-archiver
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+  description: |
+    HTTP contract for the Slack Archiver Express API (`api/`). This spec is the source of
+    truth for request/response shapes when building a client. Pair it with `AGENTS.md`
+    for architecture, data model, ingest, and how to add API features.
+
+    **Product.** A long-term archive of Slack public and private channels (never DMs).
+    One API instance can serve multiple Slack workspaces. App users may only read
+    workspaces listed on their account.
+
+    **Not in this API.** There is no channel catalog, no workspace catalog (use
+    `workspaces` from login), no user-admin CRUD, and **no HTTP endpoint that serves
+    archived file bytes**. File rows expose Slack `url_private` and a local `savepath`
+    only. Those URLs are not usable without a Slack token.
+
+    ---
+
+    ## Client implementation guide
+
+    Prefer **POST** with `Content-Type: application/json`. `GET` exists only for
+    `/health`, `/message/list`, and `/file/list`. Pagination (`_limit`, `_page`,
+    `_orderby`) is read from the **JSON body only**, so GET list calls cannot paginate
+    unless they also send a body (non-standard). Use POST for all list/get/search calls.
+
+    Extra JSON keys are ignored. Only fields registered in `api/src/payload/` are parsed.
+
+    ### Auth flow
+
+    1. `POST /user/sendlogincode` with `{ "email" }`. Always treat HTTP 200 as success.
+       Unknown emails still return success (no account enumeration). If the email exists,
+       Mailgun sends a 6-digit code, cached 5 minutes in-process (`node-cache`). Codes
+       are lost on API restart and are not shared across processes.
+    2. `POST /user/login` with `{ "email", "code" }`. Persist the entire response:
+       `session_id`, `id`, `email`, `role`, `workspaces`.
+    3. On every authenticated request send **either or both**:
+       - JSON body field `session_id`
+       - header `Authorization: CH-Slackuser-Session-Token <session_id>`
+    4. `POST /user/logout` with `session_id` to destroy the session.
+
+    Do **not** rely on cookies. A `user_session` cookie may be set but session lookup
+    only reads the JSON body and the `Authorization` header.
+
+    ### Workspace ACL
+
+    `workspaces` on the login response is the ACL. There is no workspace list endpoint.
+
+    List handlers rewrite `workspace` as follows:
+
+    - Omitted → filter to all of `session.workspaces`.
+    - Provided → must be in `session.workspaces`, else `403` `no_access_to_workspace`.
+      Internally it becomes a one-element array.
+
+    **Caveat (file list and slackuser list):** `workspace` is not in those payload
+    schemas, so a client-supplied `workspace` is dropped before the ACL helper runs.
+    Those lists always return every workspace the session may see. Message list *does*
+    honor `workspace`.
+
+    ### Channel names
+
+    `channel` is the Slack **channel name** (e.g. `general`), never the Slack channel ID
+    (`C0…`). There is no channel-list endpoint. Derive names from `message.channel`
+    values, or require the user to type a name.
+
+    ### Threads
+
+    Message list is **flat**. Thread replies have `reply_to` set to the parent message
+    `ts`. Group in the UI with `reply_to === parent.ts`. `POST /message/get` also
+    returns a `replies` array on the parent.
+
+    Nested `slackuser`, `files`, `attachments`, and `blocks` on messages are produced
+    with `json_agg`, so **`slackuser` is an array** (usually 0–1 objects), not a single
+    object.
+
+    ### Pagination
+
+    Body fields (not query string):
+
+    | Field | Meaning |
+    | --- | --- |
+    | `_limit` | Page size. Defaults to **500** for message and file lists if omitted. |
+    | `_page` | 1-based page. **Ignored unless `_limit` is also set.** Offset is `(_page - 1) * _limit`. |
+    | `_orderby` | Column name string (ASC) or `[column, direction]` e.g. `["ts", "desc"]`. |
+
+    Paginated responses:
+
+    ```json
+    { "items": [], "totalitems": 0, "totalpages": 0, "page": 1 }
+    ```
+
+    Compute page count in the client as `Math.ceil(totalitems / limit)`. Do not trust
+    `totalpages` on a short last page (the server divides by `items.length`).
+
+    Slackuser list returns `{ "items": [] }` only — no totals.
+
+    ### Dates
+
+    `date_from` / `date_to` are strings parsed with `new Date(...)`. Send ISO dates
+    (`2026-01-15` or `2026-01-15T00:00:00.000Z`). The server then compares **date-only**
+    (`yyyy-MM-dd`) with `>=` / `<=` on `message.datetime` or `file.created_at`.
+
+    Invalid dates → `400` `invalid_date_from` / `invalid_date_to`.
+
+    Empty string `channel` on message list is treated as “no channel filter”.
+
+    ### Success vs error envelopes
+
+    Success is usually the **payload itself** (user row, message object, collection),
+    HTTP 200. A few auth endpoints return `{ "status", "success", "error" }`.
+
+    Controlled errors (typical):
+
+    ```json
+    {
+      "status": "error",
+      "success": false,
+      "error": true,
+      "message": "auth_fail",
+      "detail": null,
+      "stack": {}
+    }
+    ```
+
+    `stack` is omitted outside development. Middleware and the catch-all 404 use a
+    shorter shape (`error` + `code` [+ `message`]).
+
+    ### CORS
+
+    Allowed browser origins match `mark.local:<4-digit-port>`, `localhost:<4-digit-port>`,
+    and `*.slack.com`.
+
+    ### Rate limit and IP blacklist
+
+    Both are **off by default** (`ENABLE_RATE_LIMIT`, `ENABLE_IP_BLACKLIST`). When on:
+    5 requests / 5s per UA+IP+path+body fingerprint → `429` `rate_limited`; listed IPs
+    → `403` `ip_blacklisted`.
+
+    ---
+
+    ## Known gaps (documenting behaviour, not endorsing it)
+
+    | Gap | Impact on a client |
+    | --- | --- |
+    | `POST /message/search` does not call `checkAuth` | Unauthenticated FTS across **all** workspaces. `workspace` / `channel` in the body are **not applied**. Do not treat results as ACL-safe. Still send `session_id`. Filter to `session.workspaces` in the UI only as a display aid. |
+    | `POST /slackuser/get` has no payload schema | Always fails with `missing_filter`. Use `POST /slackuser/list`. |
+    | File / slackuser list ignore `workspace` | Cannot narrow those lists to one workspace. |
+    | No file download route | UI can show metadata (`name`, `title`, `filetype`, `thumbnail` URL) only. |
+    | Login codes are in-process cache | Restart invalidates unused codes. |
+
+    `/webhook` is Slack Events API ingest. It is documented here for completeness;
+    a user-facing frontend must not call it.
+
+tags:
+  - name: Health
+    description: Unauthenticated liveness. Use this for uptime checks (not logged via `res.send`).
+  - name: Auth
+    description: Email + 6-digit login code. No passwords.
+  - name: Messages
+    description: Archived Slack messages (the primary browse/search surface).
+  - name: Files
+    description: Archived Slack file metadata. No binary download.
+  - name: Slack users
+    description: People in Slack (`slackuser`), not app accounts.
+  - name: Ingest
+    description: Slack Events API webhook. Not for the user-facing client.
+
+servers:
+  - url: http://localhost:6969
+    description: Local development. `PORT` in `api/.env` (template default 6969).
+  - url: https://{host}
+    description: Deployed API
+    variables:
+      host:
+        default: example.example
+        description: Public hostname of the API
+
+security: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Liveness
+      description: Unauthenticated. Returns JSON `{"status":"ok"}`.
+      security: []
+      responses:
+        '200':
+          description: API process is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+        '403':
+          $ref: '#/components/responses/IpBlacklisted'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /user/sendlogincode:
+    post:
+      tags: [Auth]
+      operationId: sendLoginCode
+      summary: Email a 6-digit login code
+      description: |
+        If `email` belongs to an app user, Mailgun sends a 6-digit code valid for
+        5 minutes. If the email is unknown, the handler still returns the success
+        envelope so clients cannot enumerate accounts.
+
+        Email is lowercased. Must look like an email or the API returns
+        `invalid_data_for_fields : {email}`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendLoginCodeRequest'
+            example:
+              email: archive-reader@example.com
+      responses:
+        '200':
+          description: Code sent, or email unknown (same envelope)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+              example:
+                status: ok
+                success: true
+                error: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          description: Mail send failed (`failed_to_send_code`) or unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /user/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Exchange email + code for a session
+      description: |
+        `code` must be an integer 100000–999999 matching the cached value for that
+        email. On success the cache entry is cleared.
+
+        Failures `user_not_found` and `invalid_code` are collapsed to `401` `auth_fail`
+        (no enumeration). Repeated failures from the same IP are written to `user_login`;
+        after `MAX_LOGIN_FAILS` (default 5) the IP may be inserted into `ip_blacklist`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: archive-reader@example.com
+              code: 123456
+      responses:
+        '200':
+          description: App user row plus `session_id`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                id: 1
+                email: archive-reader@example.com
+                role: 1
+                workspaces: [acme, widgets]
+                session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Wrong email/code (`auth_fail`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                status: error
+                success: false
+                error: true
+                message: auth_fail
+                detail: null
+                stack: {}
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /user/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Destroy the current session
+      description: |
+        Requires a valid session. If there is no session, the handler still returns
+        the logged-out envelope (idempotent).
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionRequest'
+            example:
+              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+      responses:
+        '200':
+          description: Session destroyed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+              example:
+                status: logged_out
+                success: true
+                error: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /message/list:
+    post:
+      tags: [Messages]
+      operationId: listMessages
+      summary: List archived messages
+      description: |
+        Authenticated. Workspace ACL applied. Default order `ts DESC`. Default page
+        size 500.
+
+        Returns a **flat** list (channel messages and thread replies together).
+        Replies have `reply_to` set to the parent `ts`.
+
+        List items include joined children (`slackuser`, `files`, `attachments`,
+        `blocks`) when present. `team` and `type` are omitted from list rows
+        (`show_in_list: false`); use `POST /message/get` for those fields.
+
+        `replies[]` is **not** populated on list items.
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageListRequest'
+            examples:
+              latestInChannel:
+                summary: Latest messages in one allowed workspace/channel
+                value:
+                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+                  workspace: acme
+                  channel: general
+                  _limit: 50
+                  _page: 1
+                  _orderby: [ts, desc]
+              dateRange:
+                summary: All allowed workspaces, date range
+                value:
+                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+                  date_from: '2026-01-01'
+                  date_to: '2026-01-31'
+                  user: U012ABCDEF
+                  _limit: 100
+                  _page: 1
+      responses:
+        '200':
+          description: Paginated message collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    get:
+      tags: [Messages]
+      operationId: listMessagesGet
+      summary: List archived messages (GET)
+      description: |
+        Same handler as POST. Filter fields may be query parameters. `session_id`
+        cannot be sent as a query param for auth — use the `Authorization` header.
+
+        `_limit` / `_page` / `_orderby` are **not** read from the query string.
+        Prefer POST.
+      security:
+        - SessionHeader: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/ChannelQuery'
+        - $ref: '#/components/parameters/UserQuery'
+        - $ref: '#/components/parameters/DateFromQuery'
+        - $ref: '#/components/parameters/DateToQuery'
+      responses:
+        '200':
+          description: Paginated message collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /message/get:
+    post:
+      tags: [Messages]
+      operationId: getMessage
+      summary: Get one message by id or ts
+      description: |
+        Authenticated. Provide `id` (integer PK) **or** `ts` (Slack timestamp string).
+        Both may be sent; they are AND-ed.
+
+        Always loads thread `replies` (messages whose `reply_to` equals this `ts`),
+        each with the usual list joins. Nested `replies` on those children are typically
+        empty arrays.
+
+        Body flag `simple` is accepted (`true` / `1` / `"true"`) but currently does
+        **not** strip nested relations or replies.
+
+        Missing row → `404` `message_not_found`.
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageGetRequest'
+            examples:
+              byTs:
+                value:
+                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+                  ts: '1704067200.123456'
+              byId:
+                value:
+                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+                  id: 446545
+      responses:
+        '200':
+          description: Single message with nested children and replies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageDetail'
+        '400':
+          description: 'Missing both id and ts (`missing_required_fields : {id,ts}`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No row (`message_not_found`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /message/search:
+    post:
+      tags: [Messages]
+      operationId: searchMessages
+      summary: Full-text search on message.text
+      description: |
+        PostgreSQL FTS (`english` config, `plainto_tsquery`) on **`message.text` only**.
+        Results are a **raw array** of message rows plus a numeric `rank` — not the
+        paginated `{ items }` envelope, and **no joined children**.
+
+        Default `limit` 20, `page` 1 (offset `(page - 1) * limit`).
+
+        **Security gap (current behaviour):** `checkAuth` is commented out. Anyone who
+        can reach the API can search every archived message. Body fields `workspace`
+        and `channel` are parsed but **not passed into the search query**.
+
+        Clients should still send `session_id`, must not treat hits as authorized, and
+        should hide rows whose `workspace` is not in `session.workspaces` for display.
+        Do not ship a public search UI that depends on this endpoint for GDPR isolation.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageSearchRequest'
+            example:
+              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+              q: deploy pipeline
+              limit: 20
+              page: 1
+      responses:
+        '200':
+          description: Ranked message rows (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MessageSearchHit'
+        '400':
+          description: Missing `q`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: '`search_query_failed` or no searchable fields'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /file/list:
+    post:
+      tags: [Files]
+      operationId: listFiles
+      summary: List archived file metadata
+      description: |
+        Authenticated. Default order `created_at DESC`. Default page size 500.
+
+        Filtered to `session.workspaces`. A client-supplied `workspace` is **ignored**
+        (not in the payload schema). `mimetype` is omitted from list rows.
+
+        There is no download URL you can use in a browser. `url` is Slack
+        `url_private`; `thumbnail` is Slack `thumb_360`; `savepath` is a server-local
+        path.
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileListRequest'
+            example:
+              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+              user: U012ABCDEF
+              date_from: '2026-01-01'
+              date_to: '2026-01-31'
+              _limit: 50
+              _page: 1
+      responses:
+        '200':
+          description: Paginated file collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    get:
+      tags: [Files]
+      operationId: listFilesGet
+      summary: List archived file metadata (GET)
+      description: Same handler as POST. Auth via `Authorization` header. Prefer POST.
+      security:
+        - SessionHeader: []
+      parameters:
+        - $ref: '#/components/parameters/UserQuery'
+        - $ref: '#/components/parameters/DateFromQuery'
+        - $ref: '#/components/parameters/DateToQuery'
+      responses:
+        '200':
+          description: Paginated file collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /file/get:
+    post:
+      tags: [Files]
+      operationId: getFile
+      summary: Get one file by numeric id
+      description: |
+        Authenticated. Lookup is the integer primary key `id`, **not** Slack `uid`.
+        Includes `mimetype` (hidden on list). Missing row → `404` `file_not_found`.
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileGetRequest'
+            example:
+              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+              id: 14622
+      responses:
+        '200':
+          description: File metadata row
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/File'
+        '400':
+          description: Missing `id`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: '`file_not_found`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /slackuser/list:
+    post:
+      tags: [Slack users]
+      operationId: listSlackusers
+      summary: List Slack people visible to the session
+      description: |
+        Authenticated. Default order `name` ASC. No pagination metadata — the response
+        is `{ "items": [ ... ] }` only. Model default limit is 500.
+
+        Client-supplied `workspace` is **ignored** (no payload schema for this path).
+        Results are limited to `session.workspaces`.
+
+        These are Slack members (`uid`, `name`, `real_name`, `is_bot`), not app logins.
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionRequest'
+            example:
+              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+      responses:
+        '200':
+          description: Slackuser collection without totals
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlackuserListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /slackuser/get:
+    post:
+      tags: [Slack users]
+      operationId: getSlackuser
+      summary: Get one Slack user (currently unusable)
+      deprecated: true
+      description: |
+        Route is mounted and calls `checkAuth`, but **no payload schema is registered**
+        for `slackuser`. `getPayload()` is always `{}`, then `_get` throws `missing_filter`.
+
+        **Do not call this from a client.** Use `POST /slackuser/list` and find the row
+        by `uid` or `id`.
+      security:
+        - SessionHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionRequest'
+      responses:
+        '200':
+          description: |
+            Not reachable in the current implementation. Documented for when a
+            payload schema is added; until then the handler throws `missing_filter`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Slackuser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          description: Always `missing_filter` when a session is present
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /webhook:
+    post:
+      tags: [Ingest]
+      operationId: slackWebhook
+      summary: Slack Events API ingest
+      description: |
+        Unauthenticated in the app-user sense. Auth is Slack `body.token` vs
+        `SLACK_VERIFICATION_TOKEN_<WORKSPACE>` (workspace from query, uppercased in
+        the env key).
+
+        Query `workspace` is the lowercase workspace name (required except URL
+        verification). If `body.challenge` is present, the response body is that
+        challenge string (Slack URL verification).
+
+        Handled `event.type` values: `message` (including edits/deletes), `team_join`,
+        `channel_created`, `channel_rename`, `channel_archive`, `channel_unarchive`,
+        `channel_deleted`, `group_rename`, `group_archive`, `group_unarchive`,
+        `group_deleted`. Other types → `invalid_event_type: …`.
+
+        Channels listed in `SLACK_IGNORED_CHANNELS_<WORKSPACE>` are skipped.
+        Persist errors may be posted to `SLACK_ALERTS_CHANNEL_<WORKSPACE>` (default
+        `alerts`).
+
+        **Frontend clients must not call this endpoint.**
+      security: []
+      parameters:
+        - name: workspace
+          in: query
+          required: false
+          description: Lowercase workspace name. Required for event payloads; not required for `challenge`.
+          schema:
+            type: string
+            example: acme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SlackEventEnvelope'
+            examples:
+              urlVerification:
+                summary: Slack URL verification
+                value:
+                  token: slack-verification-token
+                  challenge: abcdef
+                  type: url_verification
+              message:
+                summary: Message event (shape abbreviated)
+                value:
+                  token: slack-verification-token
+                  type: event_callback
+                  event:
+                    type: message
+                    user: U012ABCDEF
+                    ts: '1704067200.123456'
+                    text: hello
+                    channel: C01234567
+                    team: T01234567
+      responses:
+        '200':
+          description: Challenge string, or ingest result object
+          content:
+            application/json:
+              schema:
+                description: Challenge is a JSON string; event handling returns the save/upsert result.
+                oneOf:
+                  - type: string
+                    example: abcdef
+                  - $ref: '#/components/schemas/AddEditResult'
+                  - type: object
+                    additionalProperties: true
+        '400':
+          description: |
+            `missing_workspace`, `missing_event_data`, `missing_token`, `token_mismatch`,
+            `missing_channel`, `invalid_event_type: …`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    SessionHeader:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        `CH-Slackuser-Session-Token <session_id>`
+
+        Equivalent alternative: JSON body field `session_id` (required for POST if this
+        header is omitted). GET list must use this header.
+
+  parameters:
+    WorkspaceQuery:
+      name: workspace
+      in: query
+      schema:
+        type: string
+      description: Lowercase workspace name. Must be in `session.workspaces`.
+    ChannelQuery:
+      name: channel
+      in: query
+      schema:
+        type: string
+      description: Channel **name**, not Slack ID.
+    UserQuery:
+      name: user
+      in: query
+      schema:
+        type: string
+      description: Slack user id (`U…`) of the message author or file uploader.
+    DateFromQuery:
+      name: date_from
+      in: query
+      schema:
+        type: string
+        format: date
+    DateToQuery:
+      name: date_to
+      in: query
+      schema:
+        type: string
+        format: date
+
+  responses:
+    BadRequest:
+      description: |
+        Validation failure. Typical `message` values:
+        `missing_required_fields : {a,b}`, `invalid_data_for_fields : {…}`,
+        `invalid_date_from`, `invalid_date_to`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Missing/invalid session (`no_session`, `auth_fail`, or muted 401).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            success: false
+            error: true
+            message: no_session
+            detail: null
+            stack: {}
+    ForbiddenWorkspace:
+      description: Requested `workspace` is not in `session.workspaces`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            status: error
+            success: false
+            error: true
+            message: no_access_to_workspace
+            detail: null
+            stack: {}
+    ServerError:
+      description: Unhandled exception or generic `status.error` (500).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    RateLimited:
+      description: Rate limit exceeded (only if `ENABLE_RATE_LIMIT` is on).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MiddlewareError'
+          example:
+            error: true
+            code: 429
+            message: rate_limited
+    IpBlacklisted:
+      description: Client IP is blacklisted (only if `ENABLE_IP_BLACKLIST` is on).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MiddlewareError'
+          example:
+            error: true
+            code: 403
+            message: ip_blacklisted
+    NotFoundCatchAll:
+      description: Unknown path. Shape differs from `ErrorEnvelope`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NotFoundError'
+          example:
+            error: true
+            code: 404
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    SuccessEnvelope:
+      type: object
+      required: [status, success, error]
+      properties:
+        status:
+          type: string
+          example: ok
+        success:
+          type: boolean
+          enum: [true]
+        error:
+          type: boolean
+          enum: [false]
+
+    LogoutResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [logged_out]
+
+    ErrorEnvelope:
+      type: object
+      required: [status, success, error, message]
+      properties:
+        status:
+          type: string
+          enum: [error]
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          description: |
+            Machine-readable string. Common values: `auth_fail`, `no_session`,
+            `no_access_to_workspace`, `missing_required_fields : {…}`,
+            `invalid_data_for_fields : {…}`, `invalid_date_from`, `invalid_date_to`,
+            `failed_to_send_code`, `{table}_not_found`, `missing_filter`,
+            `search_query_failed`.
+        detail:
+          type: string
+          nullable: true
+          description: Extra context; often `null` or a JSON string.
+        stack:
+          description: Present in development only.
+          nullable: true
+          type: object
+          additionalProperties: true
+
+    MiddlewareError:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: boolean
+          enum: [true]
+        code:
+          type: integer
+          enum: [403, 429]
+        message:
+          type: string
+          enum: [ip_blacklisted, rate_limited]
+
+    NotFoundError:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: boolean
+          enum: [true]
+        code:
+          type: integer
+          enum: [404]
+
+    SessionRequest:
+      type: object
+      properties:
+        session_id:
+          type: string
+          description: |
+            Express session id from login. Required on POST if the
+            `Authorization` header is not set.
+          example: QkYk2m8s0a1b2c3d4e5f6g7h
+      additionalProperties: true
+
+    SendLoginCodeRequest:
+      type: object
+      required: [email]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          description: Lowercased before lookup.
+
+    LoginRequest:
+      type: object
+      required: [email, code]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: integer
+          minimum: 100000
+          maximum: 999999
+          description: 6-digit code from email. JSON number or numeric string.
+
+    UserRole:
+      type: integer
+      description: |
+        App role. `0` default in DB; `1` user; `10` superuser; `100` admin
+        (`helpers/user.ts` `UserRoles`).
+      enum: [0, 1, 10, 100]
+
+    LoginResponse:
+      type: object
+      required: [id, email, role, workspaces, session_id]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        workspaces:
+          type: array
+          items:
+            type: string
+          description: Lowercase workspace names this user may read. Persist and use as the ACL.
+        session_id:
+          type: string
+          description: Send on subsequent authenticated calls.
+
+    PaginationFields:
+      type: object
+      properties:
+        _limit:
+          type: integer
+          minimum: 1
+          description: Page size. Message/file list default 500 if omitted.
+        _page:
+          type: integer
+          minimum: 1
+          description: 1-based. Ignored unless `_limit` is also set.
+        _orderby:
+          description: Column name (ASC) or `[column, direction]`.
+          oneOf:
+            - type: string
+              example: ts
+            - type: array
+              minItems: 2
+              maxItems: 2
+              items:
+                type: string
+              example: [ts, desc]
+
+    MessageListRequest:
+      allOf:
+        - $ref: '#/components/schemas/SessionRequest'
+        - $ref: '#/components/schemas/PaginationFields'
+        - type: object
+          properties:
+            workspace:
+              type: string
+              description: Lowercase workspace name. Must be in session ACL. Omit to query all allowed workspaces.
+            channel:
+              type: string
+              description: Channel name. Empty string is treated as omitted.
+            user:
+              type: string
+              description: Slack user id of the author (`message.user`).
+            date_from:
+              type: string
+              description: Inclusive lower bound on `datetime` (date-only after parse).
+            date_to:
+              type: string
+              description: Inclusive upper bound on `datetime` (date-only after parse).
+
+    FileListRequest:
+      allOf:
+        - $ref: '#/components/schemas/SessionRequest'
+        - $ref: '#/components/schemas/PaginationFields'
+        - type: object
+          properties:
+            user:
+              type: string
+              description: Slack user id of the uploader (`file.user`).
+            date_from:
+              type: string
+              description: Inclusive lower bound on `created_at`.
+            date_to:
+              type: string
+              description: Inclusive upper bound on `created_at`.
+            workspace:
+              type: string
+              description: |
+                Currently **ignored** (not in payload schema). Results always cover
+                every workspace on the session.
+
+    MessageGetRequest:
+      allOf:
+        - $ref: '#/components/schemas/SessionRequest'
+        - type: object
+          properties:
+            id:
+              type: integer
+              description: Database primary key.
+            ts:
+              description: Slack message timestamp (unique). Stored as varchar; send the string form.
+              oneOf:
+                - type: string
+                  example: '1704067200.123456'
+                - type: number
+            simple:
+              description: Accepted; does not currently omit nested data.
+              oneOf:
+                - type: boolean
+                - type: integer
+                  enum: [0, 1]
+                - type: string
+                  enum: ['true', 'false']
+          anyOf:
+            - required: [id]
+            - required: [ts]
+
+    FileGetRequest:
+      allOf:
+        - $ref: '#/components/schemas/SessionRequest'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: integer
+              description: '`file.id` primary key, not Slack file `uid`.'
+
+    MessageSearchRequest:
+      allOf:
+        - $ref: '#/components/schemas/SessionRequest'
+        - type: object
+          required: [q]
+          properties:
+            q:
+              type: string
+              description: Full-text query (`plainto_tsquery`). Required.
+            limit:
+              type: integer
+              default: 20
+              description: SQL LIMIT. Defaults to 20 (not 500).
+            page:
+              type: integer
+              default: 1
+              minimum: 1
+            workspace:
+              type: string
+              description: Parsed but **not applied** by search.
+            channel:
+              type: string
+              description: Parsed but **not applied** by search.
+
+    PaginatedCollection:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: {}
+        totalitems:
+          type: integer
+          description: Total matching rows (count query).
+        totalpages:
+          type: integer
+          description: |
+            Server value is `ceil(totalitems / items.length)` for the current page.
+            Prefer `ceil(totalitems / _limit)` in the client.
+        page:
+          type: integer
+          description: 1 if `_page` was omitted.
+
+    Slackuser:
+      type: object
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+          description: Slack user id (`U…` or bot id).
+          example: U012ABCDEF
+        workspace:
+          type: string
+        team_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+          description: Slack username / handle.
+        real_name:
+          type: string
+          nullable: true
+        is_bot:
+          type: boolean
+          nullable: true
+
+    Block:
+      type: object
+      description: Persisted Block Kit subset. Only `image` and `link` types are stored.
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+          nullable: true
+          description: Slack `block_id`.
+        type:
+          type: string
+          enum: [image, link]
+        image_url:
+          type: string
+          nullable: true
+        alt_text:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        parent_id:
+          type: integer
+          nullable: true
+        text:
+          type: string
+          nullable: true
+        elements:
+          nullable: true
+          type: object
+          additionalProperties: true
+          description: JSON; unused for persisted image/link blocks.
+
+    Attachment:
+      type: object
+      description: Link unfurl / Slack attachment.
+      properties:
+        id:
+          type: integer
+        from_url:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        ts:
+          type: string
+          nullable: true
+          description: Parent message ts (varchar).
+        channel:
+          type: string
+          nullable: true
+        workspace:
+          type: string
+          nullable: true
+        text:
+          type: string
+          nullable: true
+        pretext:
+          type: string
+          nullable: true
+        block_ids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        blocks:
+          type: array
+          description: Present when attachment is loaded as a primary row with joins; nested-in-message json_agg usually has `block_ids` only.
+          items:
+            $ref: '#/components/schemas/Block'
+
+    File:
+      type: object
+      description: Slack file metadata. No API to fetch bytes.
+      properties:
+        id:
+          type: integer
+        uid:
+          type: string
+          description: Slack file id (unique).
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp string from the archive (`yyyy-MM-dd hh:mm:ss.SSS`).
+        name:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        mimetype:
+          type: string
+          nullable: true
+          description: Included on get; omitted on list.
+        filetype:
+          type: string
+          nullable: true
+        user:
+          type: string
+          nullable: true
+          description: Slack user id of the uploader. Not joined to `slackuser`.
+        workspace:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+          description: Slack `url_private`. Not a public URL.
+        thumbnail:
+          type: string
+          nullable: true
+          description: Slack `thumb_360` if present at ingest.
+        savepath:
+          type: string
+          nullable: true
+          description: |
+            Local disk path under `FILES_DOWNLOAD_DIRECTORY`
+            (`{workspace}/{channel}/{title}--{id}.{ext}`). Not fetchable via HTTP.
+
+    FileListItem:
+      allOf:
+        - $ref: '#/components/schemas/File'
+      description: Same as File but `mimetype` is not selected.
+
+    Message:
+      type: object
+      description: Archive unit. Unique on Slack `ts`.
+      properties:
+        id:
+          type: integer
+        client_msg_id:
+          type: string
+          nullable: true
+        reply_to:
+          type: string
+          nullable: true
+          description: Parent message `ts` when this row is a thread reply; null/empty for channel-level messages.
+        user:
+          type: string
+          nullable: true
+          description: Slack user id (`U…`). Display name lives on `slackuser`.
+        ts:
+          type: string
+          description: Slack timestamp, unique. Use this as the stable message key.
+          example: '1704067200.123456'
+        datetime:
+          type: string
+          nullable: true
+          description: Derived from `ts` at ingest (`yyyy-MM-dd hh:mm:ss.SSS`).
+        workspace:
+          type: string
+        channel:
+          type: string
+          description: Channel **name**.
+        team:
+          type: string
+          nullable: true
+          description: Slack team id. Omitted on list; present on get.
+        type:
+          type: string
+          nullable: true
+          description: Slack event type (usually `message`). Omitted on list; present on get.
+        text:
+          type: string
+          nullable: true
+          description: Message body. Only FTS field.
+        file_ids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        attachment_ids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        block_ids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        slackuser:
+          type: array
+          description: '`json_agg` of matching `slackuser` rows (usually 0–1). Not a single object.'
+          items:
+            $ref: '#/components/schemas/Slackuser'
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/File'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Block'
+
+    MessageListItem:
+      allOf:
+        - $ref: '#/components/schemas/Message'
+      description: List row. `team` and `type` are not selected. No `replies` array.
+
+    MessageDetail:
+      allOf:
+        - $ref: '#/components/schemas/Message'
+        - type: object
+          properties:
+            replies:
+              type: array
+              items:
+                $ref: '#/components/schemas/Message'
+              description: Messages with `reply_to` equal to this message's `ts`, ordered by `ts`.
+
+    MessageSearchHit:
+      allOf:
+        - $ref: '#/components/schemas/Message'
+        - type: object
+          required: [rank]
+          properties:
+            rank:
+              type: number
+              format: float
+              description: PostgreSQL `ts_rank_cd`. Higher is better.
+      description: Flat message row (all columns) plus `rank`. No joined children.
+
+    MessageListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedCollection'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageListItem'
+
+    FileListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedCollection'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FileListItem'
+
+    SlackuserListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slackuser'
+
+    AddEditResult:
+      type: object
+      properties:
+        errors:
+          type: array
+          items: {}
+        response:
+          type: object
+          additionalProperties: true
+          description: Returning columns from the upsert (e.g. `{ id, ts }` for messages).
+
+    SlackEventEnvelope:
+      type: object
+      description: Slack Events API body (fields vary by event).
+      properties:
+        token:
+          type: string
+          description: Compared to `SLACK_VERIFICATION_TOKEN_<WORKSPACE>`.
+        challenge:
+          type: string
+          description: If present, echoed as the HTTP body (URL verification).
+        type:
+          type: string
+        event:
+          type: object
+          properties:
+            type:
+              type: string
+            subtype:
+              type: string
+              nullable: true
+            user:
+              description: User id string, or user object for `team_join`.
+            ts:
+              type: string
+            text:
+              type: string
+            channel:
+              type: string
+              description: Slack channel ID; converted to name before save.
+            team:
+              type: string
+            thread_ts:
+              type: string
+            message:
+              type: object
+              description: Present on `message_changed`.
+            previous_message:
+              type: object
+            deleted_ts:
+              type: string
+          additionalProperties: true
+      additionalProperties: true

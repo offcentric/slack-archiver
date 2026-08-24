@@ -124,11 +124,15 @@ class SlackProvider {
         return ret;
     }
 
-    async getMessagesBatch (channelName:string, cursor?, latest?: number, limit?:number): Promise<ConversationsHistoryResponse>{
+    async getMessagesBatch (channelName:string, cursor?, latest?: number, oldest?: number, limit?:number): Promise<ConversationsHistoryResponse>{
 
         const channelId = await this.getChannelId(channelName);
 
         const payload:ConversationsHistoryArguments = {channel:channelId, limit:1000}
+        if(oldest){
+            payload.oldest = (oldest) + '';
+            payload.inclusive = true;
+        }
         if(latest){
             payload.latest = (latest) + '';
             payload.inclusive = true;

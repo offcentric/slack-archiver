@@ -99,15 +99,14 @@ export class Message extends GenericModel {
         super('message', {metadata}, req);
     }
 
-    async getForChannel(workspace, channelName?: string, latest?: number, limit?: number, doSave = false) {
-
+    async getForChannel(workspace, channelName?: string, latest?: number, oldest?: number, limit?: number, doSave = false) {
         let ret = [];
         let resp: any = {messages: [], has_more: true};
         let cursor = null;
         const slack = initSlack(workspace);
 
         do {
-            resp = await slack.getMessagesBatch(channelName, cursor, latest, limit);
+            resp = await slack.getMessagesBatch(channelName, cursor, latest, oldest, limit);
             console.log("LOADED " + resp.messages.length + " MESSAGES");
             if (!resp.messages.length) {
                 break;
