@@ -124,6 +124,9 @@ describe('media browser', () => {
             expect(archive).toHaveBeenCalledWith('file/list', expect.objectContaining({user: 'U1', _page: 1}));
         });
         expect((screen.getByLabelText('User') as HTMLSelectElement).value).toBe('U1');
+        const tile = screen.getByRole('button', {name: 'Play Clip'});
+        expect(tile.className).toContain('is-video');
+        expect(tile.querySelector('.play-overlay')).not.toBeNull();
         const permalink = screen.getByRole('link', {name: /2026/});
         expect(permalink.getAttribute('href')).toBe('/w/acme/media/4');
         expect(permalink.getAttribute('target')).toBe('_blank');

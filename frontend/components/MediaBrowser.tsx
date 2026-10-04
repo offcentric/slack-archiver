@@ -155,13 +155,24 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
             <ul className="album" aria-busy={loading} data-stale={loading && items.length > 0 ? 'true' : undefined}>
                 {items.map((file) => {
                     const who = file.real_name || file.slack_name || file.user || 'Unknown';
+                    const video = isVideoFile(file);
                     return (
                         <li key={file.id}>
-                            <button type="button" className="thumb" onClick={() => setActive(file)}>
-                                <ArchiveMedia file={file} muted/>
+                            <button
+                                type="button"
+                                className={video ? 'thumb is-video' : 'thumb'}
+                                aria-label={video ? `Play ${file.title || file.name || 'video'}` : undefined}
+                                onClick={() => setActive(file)}
+                            >
+                                <ArchiveMedia file={file} muted lazy/>
+                                {video && (
+                                    <span className="play-overlay" aria-hidden="true">
+                                        <span className="play-icon"/>
+                                    </span>
+                                )}
                             </button>
                             <p>
-                                {isVideoFile(file) ? (
+                                {video ? (
                                     <a href={mediaPath(workspace, file.id)} target="_blank" rel="noopener noreferrer">
                                         {formatWhen(file.created_at)}
                                     </a>

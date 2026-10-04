@@ -36,7 +36,7 @@ export default function Attachments({files, compact = false}: {files?: ArchiveFi
                     onClick={() => setActive(file)}
                     aria-label={`Open ${file.title || file.name || 'attachment'}`}
                 >
-                    <ArchiveMedia file={file} muted/>
+                    <ArchiveMedia file={file} muted lazy/>
                 </button>
             ) : (
                 <ArchiveMedia key={file.id} file={file} controls/>
