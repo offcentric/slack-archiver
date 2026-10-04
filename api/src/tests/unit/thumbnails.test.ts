@@ -2,13 +2,19 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {describe, expect, it} from 'vitest';
-import {generateThumbnailForFile, isVideoFile, thumbnailPathForId} from '../../helpers/thumbnails';
+import {ffmpegThumbnailArgs, generateThumbnailForFile, isVideoFile, thumbnailPathForId} from '../../helpers/thumbnails';
 
 describe('video thumbnails', () => {
     it('recognises video mime types and file types', () => {
         expect(isVideoFile({mimetype: 'video/mp4', filetype: 'mp4'})).toBe(true);
         expect(isVideoFile({mimetype: 'application/octet-stream', filetype: 'mov'})).toBe(true);
         expect(isVideoFile({mimetype: 'image/png', filetype: 'png'})).toBe(false);
+    });
+
+    it('tells ffmpeg to overwrite one jpeg instead of an image sequence', () => {
+        const args = ffmpegThumbnailArgs('/videos/clip.mp4', '/thumbs/9430.part.jpg', '1');
+        expect(args.slice(-3)).toEqual(['-update', '1', '/thumbs/9430.part.jpg']);
+        expect(args).toContain('scale=640:-2,format=yuvj420p');
     });
 
     it('stores a thumbnail as a jpg named with the file id', () => {

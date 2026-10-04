@@ -89,20 +89,39 @@ function runFfmpeg(args: string[]): Promise<void> {
     });
 }
 
-async function extractFrameWithFfmpeg(input: string, output: string): Promise<void> {
-    const args = (offset: string) => [
+export function ffmpegThumbnailArgs(input: string, output: string, offset: string): string[] {
+    return [
         '-hide_banner', '-loglevel', 'error',
         '-y', '-ss', offset, '-i', input,
-        '-frames:v', '1', '-vf', 'scale=640:-2', '-q:v', '3',
+        '-frames:v', '1',
+        '-vf', 'scale=640:-2,format=yuvj420p',
+        '-q:v', '3',
+        // Without -update, image2 treats the path as a sequence pattern and can exit without writing this file.
+        '-update', '1',
         output,
     ];
+}
+
+async function writtenJpeg(output: string): Promise<boolean> {
+    const stat = await fs.promises.stat(output).catch(() => null);
+    return Boolean(stat && stat.size > 0);
+}
+
+async function extractFrameWithFfmpeg(input: string, output: string): Promise<void> {
+    const attempt = async (offset: string) => {
+        await runFfmpeg(ffmpegThumbnailArgs(input, output, offset));
+        if (!(await writtenJpeg(output))) {
+            await fs.promises.rm(output, {force: true}).catch(() => undefined);
+            throw new Error('thumbnail_not_written');
+        }
+    };
     try {
-        await runFfmpeg(args('1'));
+        await attempt('1');
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
             throw error;
         }
-        await runFfmpeg(args('0'));
+        await attempt('0');
     }
 }
 
