@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {isEmail, loginErrorMessage, sendCodeOutcome, sessionOutcome, sessionUnavailableMessage} from './login';
 import {onlyWorkspace} from './types';
 import {buildMessageListBody, formatWhen, messagesByUserPath, userIdsForFilter} from './messages';
-import {formatSlackText, highlightTerms, slackTextParts} from './slackText';
+import {formatSlackText, highlightTerms, parseSlackMessage, slackTextParts} from './slackText';
 
 describe('login', () => {
     it('hides every send-code failure except a server error', () => {
@@ -141,10 +141,57 @@ describe('slack text', () => {
         expect(formatSlackText('nice :thumbsup: and :+1:')).toBe('nice 👍 and 👍');
         expect(formatSlackText('yes :thumbsup::skin-tone-3:')).toBe('yes 👍🏼');
         expect(formatSlackText('ship :rocket:')).toBe('ship 🚀');
-        expect(formatSlackText('keep :not_a_real_emoji: and `:thumbsup:`')).toBe('keep :not_a_real_emoji: and `:thumbsup:`');
+        expect(formatSlackText('keep :not_a_real_emoji: and `:thumbsup:`')).toBe('keep :not_a_real_emoji: and :thumbsup:');
         expect(slackTextParts('see <https://example.com/:thumbsup:|ok :heart:>')).toEqual([
             {text: 'see '},
             {text: 'ok ❤️', href: 'https://example.com/:thumbsup:'},
+        ]);
+    });
+
+    it('renders Slack markdown and leaves snake_case alone', () => {
+        expect(parseSlackMessage('*Task created* by Ada')).toEqual([
+            {type: 'paragraph', children: [
+                {type: 'bold', children: [{type: 'text', text: 'Task created'}]},
+                {type: 'text', text: ' by Ada'},
+            ]},
+        ]);
+        expect(parseSlackMessage('dates **Exactly: 06/07**')).toEqual([
+            {type: 'paragraph', children: [
+                {type: 'text', text: 'dates '},
+                {type: 'bold', children: [{type: 'text', text: 'Exactly: 06/07'}]},
+            ]},
+        ]);
+        expect(parseSlackMessage('refreshUrl: _string_')).toEqual([
+            {type: 'paragraph', children: [
+                {type: 'text', text: 'refreshUrl: '},
+                {type: 'italic', children: [{type: 'text', text: 'string'}]},
+            ]},
+        ]);
+        expect(formatSlackText('postbooking_webhook_failed')).toBe('postbooking_webhook_failed');
+        expect(formatSlackText('~no longer true~')).toBe('no longer true');
+        expect(parseSlackMessage('use `npm test`')).toEqual([
+            {type: 'paragraph', children: [
+                {type: 'text', text: 'use '},
+                {type: 'code', children: [{type: 'text', text: 'npm test'}]},
+            ]},
+        ]);
+        expect(parseSlackMessage('```\n/user/getbookings\n```')).toEqual([
+            {type: 'pre', text: '/user/getbookings'},
+        ]);
+        expect(parseSlackMessage('> quoted\n- one\n- two')).toEqual([
+            {type: 'quote', children: [{type: 'text', text: 'quoted'}]},
+            {type: 'list', ordered: false, items: [[{type: 'text', text: 'one'}], [{type: 'text', text: 'two'}]]},
+        ]);
+        expect(parseSlackMessage('see [docs](https://example.com/docs)')).toEqual([
+            {type: 'paragraph', children: [
+                {type: 'text', text: 'see '},
+                {type: 'link', href: 'https://example.com/docs', children: [{type: 'text', text: 'docs'}]},
+            ]},
+        ]);
+        expect(parseSlackMessage('*<@U01DGEKUFBJ>*', new Map([['U01DGEKUFBJ', 'mark']]))).toEqual([
+            {type: 'paragraph', children: [
+                {type: 'bold', children: [{type: 'mention', id: 'U01DGEKUFBJ', text: 'mark'}]},
+            ]},
         ]);
     });
 

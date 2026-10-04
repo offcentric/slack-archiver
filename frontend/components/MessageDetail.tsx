@@ -83,7 +83,7 @@ export default function MessageDetail({workspace, ts}: {workspace: string; ts: s
                         <strong>{authorName(message, names)}</strong>
                         <Link href={messagePath(workspace, message.ts)}>{formatWhen(message.datetime) || message.ts}</Link>
                     </header>
-                    <p className="message-text">{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel || root.channel}/> : '—'}</p>
+                    <div className="message-text slack-body">{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel || root.channel}/> : '—'}</div>
                     <Attachments files={message.files}/>
                 </section>
             ))}

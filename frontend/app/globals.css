@@ -349,7 +349,32 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .grid tbody tr:last-child td { border-bottom: 0; }
 .grid tbody tr:hover td { background: #faf8ff; }
 .sort { padding: 0; font-weight: 700; color: var(--primary); }
-.message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-text { overflow-wrap: anywhere; }
+.slack-body p, .slack-body blockquote { margin: 0 0 0.35rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.slack-body p:last-child, .slack-body blockquote:last-child { margin-bottom: 0; }
+.slack-body strong { font-weight: 700; }
+.slack-body code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    background: #f1edfb;
+    border-radius: 4px;
+    padding: 0.05em 0.3em;
+}
+.slack-body pre {
+    margin: 0.3rem 0;
+    padding: 0.55rem 0.7rem;
+    background: #f1edfb;
+    border-radius: 8px;
+    overflow-x: auto;
+    white-space: pre;
+}
+.slack-body pre code { padding: 0; background: none; }
+.slack-body blockquote { padding-left: 0.7rem; border-left: 3px solid var(--line); }
+.slack-body ul, .slack-body ol { margin: 0.2rem 0 0.35rem 1.25rem; padding: 0; }
+.slack-body li { margin: 0.1rem 0; }
+.slack-body .md-h { font-weight: 700; }
+.slack-body .md-h1 { font-size: 1.15rem; }
+.slack-body .md-h2 { font-size: 1.05rem; }
 .mention { font-weight: 600; color: var(--primary); }
 a.mention { text-decoration: none; }
 a.mention:hover { text-decoration: underline; }
@@ -365,7 +390,7 @@ a.mention:hover { text-decoration: underline; }
 .thread-toggle[aria-expanded="true"] { background: var(--primary); color: #fff; }
 .reply-row td { background: #f6f3fb; font-size: 0.95rem; }
 .reply-row td:first-child { padding-left: 1.6rem; box-shadow: inset 4px 0 0 var(--accent-2); }
-.reply-row .message-text > p::before { content: '↳ '; color: var(--muted); }
+.reply-row .message-text > .slack-body > :first-child::before { content: '↳ '; color: var(--muted); }
 
 .pager { display: flex; gap: 0.8rem; align-items: center; margin-top: 1rem; }
 .load-more { min-height: 1.5rem; margin: 1rem 0 0; text-align: center; color: var(--muted); }
@@ -415,7 +440,7 @@ a.mention:hover { text-decoration: underline; }
     background: #efeaf8;
 }
 .inline-file img, .inline-file video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.message-text > p { margin: 0; }
+.slack-body > p { margin-top: 0; }
 .attachments img, .attachments video { max-width: 100%; border-radius: 12px; }
 
 /* Media */

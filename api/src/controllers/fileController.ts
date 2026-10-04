@@ -7,6 +7,7 @@ import {getWorkspaceNames} from "interfaces/user";
 import {getEnvConfig} from "helpers/config";
 import {contentDispositionFilename, FILE_SORT_COLUMNS, sanitizeOrderBy} from "helpers/archiveQuery";
 import {archiveRoots, resolveArchiveFile} from "helpers/fileAccess";
+import {parseByteRange} from "helpers/byteRange";
 import {thumbnailPathForId} from "helpers/thumbnails";
 import Exception from "models/exception";
 import {status} from "helpers/status";
@@ -82,10 +83,26 @@ export class FileController extends GenericController{
                 throw new Exception('file_not_on_disk', status.notfound);
             }
             const filename = contentDispositionFilename(file.name || file.title);
+            const {size} = fs.statSync(target);
             res.setHeader('Content-Type', file.mimetype || 'application/octet-stream');
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
             res.setHeader('Cache-Control', 'private, max-age=3600');
             res.setHeader('X-Content-Type-Options', 'nosniff');
+            res.setHeader('Accept-Ranges', 'bytes');
+            const range = parseByteRange(req.headers.range, size);
+            if (range.kind === 'unsatisfiable') {
+                res.status(status.range_not_satisfiable);
+                res.setHeader('Content-Range', `bytes */${size}`);
+                return res.end();
+            }
+            if (range.kind === 'partial') {
+                const {start, end} = range.range;
+                res.status(status.partial);
+                res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+                res.setHeader('Content-Length', String(end - start + 1));
+                return fs.createReadStream(target, {start, end}).pipe(res);
+            }
+            res.setHeader('Content-Length', String(size));
             fs.createReadStream(target).pipe(res);
         } catch (e) {
             return this.returnExceptionAsError(res, e);

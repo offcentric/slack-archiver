@@ -14,7 +14,9 @@ export const status = {
     unprocessable:422,
     too_many_requests:429,
     created: 201,
-    nocontent: 204
+    nocontent: 204,
+    partial: 206,
+    range_not_satisfiable: 416
 };
 
 export const codes:any = Object.values(status);

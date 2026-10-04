@@ -80,7 +80,7 @@ export default function RecentMessages({workspace}: {workspace: string}) {
                                 {' · '}
                                 <Link href={messagePath(workspace, message.ts)} title="Go to message">{formatWhen(message.datetime) || message.ts}</Link>
                             </p>
-                            <p className="message-text">{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel}/> : '—'}</p>
+                            <div className="message-text slack-body">{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel}/> : '—'}</div>
                         </li>
                     ))}
                 </ul>
