@@ -443,6 +443,7 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .results { display: grid; gap: 0.75rem; }
 .results li { padding: 0.9rem 1rem; }
 .results .result-channel { margin: 0 0 0.15rem; font-weight: 700; }
+.results .result-author { font-weight: 600; color: var(--ink); }
 .results .result-channel a { color: inherit; }
 .results .result-channel + .muted { margin-top: 0; }
 .results mark {

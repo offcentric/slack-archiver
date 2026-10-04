@@ -116,6 +116,7 @@ export class MessageController extends GenericController{
             const ret = await this.model._search(payload.q, payload.limit, payload.page, {
                 workspace: workspaces,
                 channel: payload.channel || undefined,
+                user: typeof payload.user === 'string' ? payload.user || undefined : undefined,
             });
             return this.returnSuccess(res, ret);
         } catch (e) {

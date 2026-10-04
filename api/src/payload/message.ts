@@ -32,7 +32,8 @@ export const PayloadFields:PayloadInterface = {
         limit: {type:'number'},
         page: {type:'number'},
         workspace: {type:'string'},
-        channel: {type:'string'}
+        channel: {type:'string'},
+        user: {type:'string'},
     }
 };
 

@@ -689,8 +689,8 @@ paths:
 
         Requires a session. Results are limited to `session.workspaces[].workspace`.
         A `workspace` value must be one of those names (`403` `no_access_to_workspace`
-        otherwise). Optional `channel` is applied as an equality filter. An account
-        with no workspaces receives an empty array.
+        otherwise). Optional `channel` and `user` (Slack user id) are equality filters.
+        An account with no workspaces receives an empty array.
       security:
         - BearerAuth: []
       requestBody:
@@ -1696,10 +1696,13 @@ components:
               minimum: 1
             workspace:
               type: string
-              description: Parsed but **not applied** by search.
+              description: Must be one of the session workspaces. Omit to search all of them.
             channel:
               type: string
-              description: Parsed but **not applied** by search.
+              description: Limit results to this archived channel name.
+            user:
+              type: string
+              description: Limit results to this Slack user id (`message.user`).
 
     PaginatedCollection:
       type: object

@@ -2,12 +2,16 @@
 
 import Link from 'next/link';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation';
-import {FormEvent, useEffect, useState} from 'react';
+import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {archive} from '@/lib/client';
-import {channelMessagesPath, formatWhen, itemsOf, messagePath, PAGE_SIZE} from '@/lib/messages';
+import {authorName, channelMessagesPath, formatWhen, itemsOf, messagePath, PAGE_SIZE} from '@/lib/messages';
 import {formatSlackText, highlightTerms} from '@/lib/slackText';
-import {ArchiveMessage} from '@/lib/types';
+import {ArchiveMessage, SlackUser} from '@/lib/types';
 import {hrefWith, queryPage, queryValue} from '@/lib/viewQuery';
+
+function personLabel(person: SlackUser): string {
+    return person.real_name || person.name || person.uid;
+}
 
 export default function SearchBrowser({workspace}: {workspace: string}) {
     const router = useRouter();
@@ -15,10 +19,13 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
     const searchParams = useSearchParams();
     const submittedQ = queryValue(searchParams, 'q');
     const submittedChannel = queryValue(searchParams, 'channel');
+    const submittedUser = queryValue(searchParams, 'user');
     const page = queryPage(searchParams);
     const [channels, setChannels] = useState<string[]>([]);
+    const [people, setPeople] = useState<SlackUser[]>([]);
     const [query, setQuery] = useState(submittedQ);
     const [channel, setChannel] = useState(submittedChannel);
+    const [user, setUser] = useState(submittedUser);
     const [hits, setHits] = useState<ArchiveMessage[]>([]);
     const [error, setError] = useState('');
     const [searched, setSearched] = useState(false);
@@ -26,9 +33,21 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
     useEffect(() => {
         let cancelled = false;
         (async () => {
-            const res = await archive<{items?: string[]}>('message/channels', {workspace});
-            if (!cancelled && res.ok) {
-                setChannels(itemsOf<string>(res.data));
+            const [channelRes, userRes] = await Promise.all([
+                archive<{items?: string[]}>('message/channels', {workspace}),
+                archive<{items?: SlackUser[]}>('slackuser/list', {workspace}),
+            ]);
+            if (cancelled) {
+                return;
+            }
+            if (channelRes.ok) {
+                setChannels(itemsOf<string>(channelRes.data));
+            }
+            if (userRes.ok) {
+                const users = itemsOf<SlackUser>(userRes.data)
+                    .filter((person) => person.uid && (!person.workspace || person.workspace === workspace))
+                    .sort((a, b) => personLabel(a).localeCompare(personLabel(b)));
+                setPeople(users);
             }
         })();
         return () => {
@@ -39,7 +58,16 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
     useEffect(() => {
         setQuery(submittedQ);
         setChannel(submittedChannel);
-    }, [submittedQ, submittedChannel]);
+        setUser(submittedUser);
+    }, [submittedQ, submittedChannel, submittedUser]);
+
+    const names = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const person of people) {
+            map.set(person.uid, personLabel(person));
+        }
+        return map;
+    }, [people]);
 
     useEffect(() => {
         if (!submittedQ) {
@@ -55,6 +83,9 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
             };
             if (submittedChannel) {
                 body.channel = submittedChannel;
+            }
+            if (submittedUser) {
+                body.user = submittedUser;
             }
             const res = await archive<ArchiveMessage[]>('message/search', body);
             if (cancelled) {
@@ -72,7 +103,7 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
         return () => {
             cancelled = true;
         };
-    }, [workspace, submittedQ, submittedChannel, page]);
+    }, [workspace, submittedQ, submittedChannel, submittedUser, page]);
 
     const onSubmit = (event: FormEvent) => {
         event.preventDefault();
@@ -80,7 +111,7 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
         if (!q) {
             return;
         }
-        router.push(hrefWith(pathname, searchParams, {q, channel, page: 1}));
+        router.push(hrefWith(pathname, searchParams, {q, channel, user, page: 1}));
     };
 
     const showPage = (next: number) => {
@@ -91,7 +122,7 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
         <section className="panel">
             <header className="browser-head">
                 <h1>Search</h1>
-                <p className="muted">Looks across channels in {workspace}. A channel here is optional.</p>
+                <p className="muted">Looks across channels in {workspace}. Channel and author are optional.</p>
             </header>
             <form className="toolbar" onSubmit={onSubmit}>
                 <label className="grow">
@@ -103,6 +134,15 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
                     <select value={channel} onChange={(event) => setChannel(event.target.value)} aria-label="Limit search to a channel">
                         <option value="">All channels</option>
                         {channels.map((name) => <option key={name} value={name}>#{name}</option>)}
+                    </select>
+                </label>
+                <label>
+                    Author
+                    <select value={user} onChange={(event) => setUser(event.target.value)} aria-label="Limit search to an author">
+                        <option value="">Everyone</option>
+                        {people.map((person) => (
+                            <option key={person.uid} value={person.uid}>{personLabel(person)}</option>
+                        ))}
                     </select>
                 </label>
                 <button type="submit">Search</button>
@@ -119,6 +159,8 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
                                 <Link href={channelMessagesPath(workspace, hit.channel)} title={`Messages in #${hit.channel}`}>#{hit.channel}</Link>
                             </p>
                             <p className="muted">
+                                <span className="result-author">{authorName(hit, names)}</span>
+                                {' · '}
                                 <Link href={messagePath(workspace, hit.ts)} title="Go to message">{formatWhen(hit.datetime)}</Link>
                             </p>
                             <p className="message-text">{text ? parts.map((part, index) => (
