@@ -265,11 +265,12 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
     font-weight: 700;
     box-shadow: inset 3px 0 0 var(--accent-2);
 }
-.browser-main { min-height: 0; padding: 1.25rem 1.25rem 2.5rem; overflow: auto; overscroll-behavior: contain; }
+.browser-main { min-width: 0; min-height: 0; padding: 1.25rem 1.25rem 2.5rem; overflow: auto; overscroll-behavior: contain; }
 .browser-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 
 .grid {
     width: 100%;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
     background: var(--card);
@@ -283,11 +284,14 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
     vertical-align: top;
     padding: 0.65rem 0.7rem;
 }
+.grid th:first-child, .grid td:first-child { width: 200px; }
+.grid th:nth-child(2), .grid td:nth-child(2) { width: 150px; }
+.grid th:nth-child(4), .grid td:nth-child(4) { width: 10rem; }
 .grid thead tr:first-child th { background: #f1edfb; color: var(--ink); }
 .grid tbody tr:last-child td { border-bottom: 0; }
 .grid tbody tr:hover td { background: #faf8ff; }
 .sort { padding: 0; font-weight: 700; color: var(--primary); }
-.message-text { white-space: pre-wrap; }
+.message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .has-thread td { background: #fbfaff; }
 .thread-toggle {
@@ -438,6 +442,9 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 
 .results { display: grid; gap: 0.75rem; }
 .results li { padding: 0.9rem 1rem; }
+.results .result-channel { margin: 0 0 0.15rem; font-weight: 700; }
+.results .result-channel a { color: inherit; }
+.results .result-channel + .muted { margin-top: 0; }
 .results mark {
     background: var(--highlight);
     color: inherit;

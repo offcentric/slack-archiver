@@ -5,14 +5,16 @@ import {PAGE_SIZE} from '@/lib/messages';
 import MessageBrowser from './MessageBrowser';
 
 const archive = vi.fn();
+const push = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/client', () => ({
     archive: (...args: unknown[]) => archive(...args),
 }));
 
 vi.mock('next/navigation', () => ({
-    useRouter: () => ({push: vi.fn(), replace: vi.fn()}),
-    useSearchParams: () => ({get: () => ''}),
+    useRouter: () => ({push, replace: vi.fn()}),
+    usePathname: () => '/w/acme/messages',
+    useSearchParams: () => ({get: () => '', toString: () => ''}),
 }));
 
 class ImmediateObserver {
@@ -31,6 +33,7 @@ class ImmediateObserver {
 afterEach(() => {
     cleanup();
     archive.mockReset();
+    push.mockReset();
     vi.unstubAllGlobals();
 });
 
@@ -73,6 +76,7 @@ describe('message browser', () => {
                 _page: 1,
             }));
         });
+        expect(push).toHaveBeenCalledWith('/w/acme/messages?channel=general&text=deploy&from=2025-01-01&to=2025-12-31');
         expect(screen.getByRole('button', {name: '#general'}).getAttribute('aria-current')).toBe('true');
     });
 

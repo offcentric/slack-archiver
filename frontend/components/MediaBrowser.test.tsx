@@ -5,9 +5,16 @@ import {PAGE_SIZE} from '@/lib/messages';
 import MediaBrowser from './MediaBrowser';
 
 const archive = vi.fn();
+const push = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/client', () => ({
     archive: (...args: unknown[]) => archive(...args),
+}));
+
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({push, replace: vi.fn()}),
+    usePathname: () => '/w/acme/media',
+    useSearchParams: () => ({get: () => '', toString: () => ''}),
 }));
 
 class ImmediateObserver {
@@ -26,6 +33,7 @@ class ImmediateObserver {
 afterEach(() => {
     cleanup();
     archive.mockReset();
+    push.mockReset();
     vi.unstubAllGlobals();
 });
 
@@ -99,6 +107,7 @@ describe('media browser', () => {
                 _page: 1,
             }));
         });
+        expect(push).toHaveBeenCalledWith('/w/acme/media?channel=random&user=U1&from=2024-01-01&to=2024-12-31');
     });
 
     it('filters the album by the person when their name is clicked', async () => {

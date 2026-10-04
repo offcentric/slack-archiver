@@ -1,18 +1,24 @@
 'use client';
 
 import Link from 'next/link';
+import {usePathname, useRouter, useSearchParams} from 'next/navigation';
 import {FormEvent, useEffect, useState} from 'react';
 import {archive} from '@/lib/client';
-import {formatWhen, itemsOf, messagePath, PAGE_SIZE} from '@/lib/messages';
+import {channelMessagesPath, formatWhen, itemsOf, messagePath, PAGE_SIZE} from '@/lib/messages';
 import {formatSlackText, highlightTerms} from '@/lib/slackText';
 import {ArchiveMessage} from '@/lib/types';
+import {hrefWith, queryPage, queryValue} from '@/lib/viewQuery';
 
 export default function SearchBrowser({workspace}: {workspace: string}) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const submittedQ = queryValue(searchParams, 'q');
+    const submittedChannel = queryValue(searchParams, 'channel');
+    const page = queryPage(searchParams);
     const [channels, setChannels] = useState<string[]>([]);
-    const [query, setQuery] = useState('');
-    const [channel, setChannel] = useState('');
-    const [submitted, setSubmitted] = useState<{q: string; channel: string} | null>(null);
-    const [page, setPage] = useState(1);
+    const [query, setQuery] = useState(submittedQ);
+    const [channel, setChannel] = useState(submittedChannel);
     const [hits, setHits] = useState<ArchiveMessage[]>([]);
     const [error, setError] = useState('');
     const [searched, setSearched] = useState(false);
@@ -31,19 +37,24 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
     }, [workspace]);
 
     useEffect(() => {
-        if (!submitted?.q) {
+        setQuery(submittedQ);
+        setChannel(submittedChannel);
+    }, [submittedQ, submittedChannel]);
+
+    useEffect(() => {
+        if (!submittedQ) {
             return;
         }
         let cancelled = false;
         (async () => {
             const body: Record<string, unknown> = {
-                q: submitted.q,
+                q: submittedQ,
                 workspace,
                 limit: PAGE_SIZE,
                 page,
             };
-            if (submitted.channel) {
-                body.channel = submitted.channel;
+            if (submittedChannel) {
+                body.channel = submittedChannel;
             }
             const res = await archive<ArchiveMessage[]>('message/search', body);
             if (cancelled) {
@@ -61,7 +72,7 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
         return () => {
             cancelled = true;
         };
-    }, [workspace, submitted, page]);
+    }, [workspace, submittedQ, submittedChannel, page]);
 
     const onSubmit = (event: FormEvent) => {
         event.preventDefault();
@@ -69,8 +80,11 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
         if (!q) {
             return;
         }
-        setPage(1);
-        setSubmitted({q, channel});
+        router.push(hrefWith(pathname, searchParams, {q, channel, page: 1}));
+    };
+
+    const showPage = (next: number) => {
+        router.push(hrefWith(pathname, searchParams, {page: next}));
     };
 
     return (
@@ -98,23 +112,27 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
             <ul className="results">
                 {hits.map((hit) => {
                     const text = formatSlackText(hit.text);
-                    const parts = highlightTerms(text, submitted?.q || '');
+                    const parts = highlightTerms(text, submittedQ);
                     return (
                         <li key={hit.ts}>
-                            <p className="muted">#{hit.channel} · {formatWhen(hit.datetime)}</p>
+                            <p className="result-channel">
+                                <Link href={channelMessagesPath(workspace, hit.channel)} title={`Messages in #${hit.channel}`}>#{hit.channel}</Link>
+                            </p>
+                            <p className="muted">
+                                <Link href={messagePath(workspace, hit.ts)} title="Go to message">{formatWhen(hit.datetime)}</Link>
+                            </p>
                             <p className="message-text">{text ? parts.map((part, index) => (
                                 part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>
                             )) : '—'}</p>
-                            <p><Link href={messagePath(workspace, hit.ts)}>Go to message</Link></p>
                         </li>
                     );
                 })}
             </ul>
             {hits.length > 0 && (
                 <div className="pager">
-                    <button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
+                    <button type="button" disabled={page <= 1} onClick={() => showPage(page - 1)}>Previous</button>
                     <span>Page {page}</span>
-                    <button type="button" disabled={hits.length < PAGE_SIZE} onClick={() => setPage((value) => value + 1)}>Next</button>
+                    <button type="button" disabled={hits.length < PAGE_SIZE} onClick={() => showPage(page + 1)}>Next</button>
                 </div>
             )}
         </section>

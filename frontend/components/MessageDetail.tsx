@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useEffect, useMemo, useState} from 'react';
 import Attachments from '@/components/Attachments';
 import {archive} from '@/lib/client';
-import {authorName, formatWhen, itemsOf, messagePath} from '@/lib/messages';
+import {authorName, channelMessagesPath, formatWhen, itemsOf, messagePath} from '@/lib/messages';
 import {formatSlackText} from '@/lib/slackText';
 import {ArchiveMessage, SlackUser} from '@/lib/types';
 
@@ -72,7 +72,7 @@ export default function MessageDetail({workspace, ts}: {workspace: string; ts: s
     return (
         <article className="thread">
             <p className="crumb">
-                <Link href={`/w/${encodeURIComponent(workspace)}/messages?channel=${encodeURIComponent(root.channel || '')}`}>
+                <Link href={channelMessagesPath(workspace, root.channel || '')}>
                     #{root.channel}
                 </Link>
             </p>

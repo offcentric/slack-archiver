@@ -4,21 +4,23 @@ import Attachments from '@/components/Attachments';
 import DateRangeFields from '@/components/DateRangeFields';
 import Spinner from '@/components/Spinner';
 import Link from 'next/link';
-import {useRouter, useSearchParams} from 'next/navigation';
+import {usePathname, useRouter, useSearchParams} from 'next/navigation';
 import {FormEvent, Fragment, useEffect, useMemo, useState} from 'react';
 import {archive} from '@/lib/client';
 import {
     authorName,
     buildMessageListBody,
-    emptyFilters,
     formatWhen,
     itemsOf,
+    messageFiltersFromQuery,
     messagePath,
     MessageFilters,
     PAGE_SIZE,
+    sameFilters,
     truncate,
     userIdsForFilter,
 } from '@/lib/messages';
+import {hrefWith, queryValue} from '@/lib/viewQuery';
 import {appendPage, LoadMore} from '@/lib/useLoadMore';
 import {formatSlackText} from '@/lib/slackText';
 import {ArchiveMessage, SlackUser} from '@/lib/types';
@@ -31,8 +33,10 @@ const COLUMNS: Array<{key: 'datetime' | 'user' | 'text'; label: string}> = [
 
 export default function MessageBrowser({workspace}: {workspace: string}) {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
-    const queryChannel = searchParams.get('channel') || '';
+    const queryKey = searchParams.toString();
+    const queryChannel = queryValue(searchParams, 'channel');
     const [channels, setChannels] = useState<string[]>([]);
     const [people, setPeople] = useState<SlackUser[]>([]);
     const [messages, setMessages] = useState<ArchiveMessage[]>([]);
@@ -41,8 +45,8 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
     const [loadingMore, setLoadingMore] = useState(false);
     const [lastCount, setLastCount] = useState(0);
     const [orderBy, setOrderBy] = useState<[string, 'asc' | 'desc']>(['ts', 'desc']);
-    const [draft, setDraft] = useState<MessageFilters>(emptyFilters());
-    const [applied, setApplied] = useState<MessageFilters>(emptyFilters());
+    const [draft, setDraft] = useState<MessageFilters>(() => messageFiltersFromQuery(searchParams));
+    const [applied, setApplied] = useState<MessageFilters>(() => messageFiltersFromQuery(searchParams));
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -96,6 +100,22 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
     }, [workspace]);
 
     useEffect(() => {
+        const next = messageFiltersFromQuery(searchParams);
+        setDraft(next);
+        setApplied((current) => sameFilters(current, next) ? current : next);
+        setPage(1);
+    }, [queryKey]);
+
+    useEffect(() => {
+        if (!channels.length || queryChannel) {
+            return;
+        }
+        router.replace(hrefWith(pathname, searchParams, {channel: channels[0]}));
+        // searchParams is read through queryKey; router identity is stable.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [channels, queryChannel, pathname, queryKey]);
+
+    useEffect(() => {
         if (!activeChannel) {
             return;
         }
@@ -143,24 +163,37 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
         };
     }, [workspace, activeChannel, page, orderBy, applied, people]);
 
-    const selectChannel = (channel: string) => {
+    const remember = (updates: Record<string, string>) => {
         setPage(1);
-        router.push(`/w/${encodeURIComponent(workspace)}/messages?channel=${encodeURIComponent(channel)}`);
+        router.push(hrefWith(pathname, searchParams, updates));
+    };
+
+    const selectChannel = (channel: string) => {
+        remember({channel});
     };
 
     const applyFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setPage(1);
-        setApplied({...draft});
+        const next = {...draft, text: draft.text.trim()};
+        setDraft(next);
+        setApplied(next);
+        remember({
+            channel: activeChannel,
+            user: next.user,
+            text: next.text,
+            from: next.dateFrom,
+            to: next.dateTo,
+        });
     };
 
     const filterByAuthor = (message: ArchiveMessage) => {
         if (!message.user) {
             return;
         }
-        setPage(1);
-        setDraft((current) => ({...current, user: message.user || ''}));
-        setApplied((current) => ({...current, user: message.user || ''}));
+        const next = {...applied, user: message.user};
+        setDraft(next);
+        setApplied(next);
+        remember({user: message.user, channel: activeChannel});
     };
 
     const authorButton = (message: ArchiveMessage) => {

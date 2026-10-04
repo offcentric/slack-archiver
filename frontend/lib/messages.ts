@@ -1,5 +1,6 @@
 import {applyRange, DateRange} from './dateRange';
 import {ArchiveMessage, SlackUser} from './types';
+import {queryValue, QuerySource} from './viewQuery';
 
 export const PAGE_SIZE = 40;
 
@@ -9,6 +10,19 @@ export interface MessageFilters extends DateRange {
 }
 
 export const emptyFilters = (): MessageFilters => ({text: '', user: '', dateFrom: '', dateTo: ''});
+
+export function messageFiltersFromQuery(source: QuerySource): MessageFilters {
+    return {
+        text: queryValue(source, 'text'),
+        user: queryValue(source, 'user'),
+        dateFrom: queryValue(source, 'from'),
+        dateTo: queryValue(source, 'to'),
+    };
+}
+
+export function sameFilters(left: MessageFilters, right: MessageFilters): boolean {
+    return left.text === right.text && left.user === right.user && left.dateFrom === right.dateFrom && left.dateTo === right.dateTo;
+}
 
 export function buildMessageListBody(input: {
     workspace: string;
@@ -73,6 +87,10 @@ export function formatWhen(value?: string | null): string {
 
 export function messagePath(workspace: string, ts: string): string {
     return `/w/${encodeURIComponent(workspace)}/messages/${encodeURIComponent(ts)}`;
+}
+
+export function channelMessagesPath(workspace: string, channel: string): string {
+    return `/w/${encodeURIComponent(workspace)}/messages?channel=${encodeURIComponent(channel)}`;
 }
 
 export function mediaPath(workspace: string, id: number): string {

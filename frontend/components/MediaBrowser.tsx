@@ -1,25 +1,40 @@
 'use client';
 
 import {FormEvent, useEffect, useState} from 'react';
+import {usePathname, useRouter, useSearchParams} from 'next/navigation';
 import ArchiveMedia from '@/components/ArchiveMedia';
 import DateRangeFields from '@/components/DateRangeFields';
 import Spinner from '@/components/Spinner';
 import {archive} from '@/lib/client';
-import {applyRange, DateRange, emptyRange} from '@/lib/dateRange';
+import {applyRange, DateRange} from '@/lib/dateRange';
 import {formatWhen, itemsOf, mediaPath, PAGE_SIZE} from '@/lib/messages';
 import {isVideoFile} from '@/lib/slackText';
 import {appendPage, LoadMore} from '@/lib/useLoadMore';
 import {ArchiveFile, SlackUser} from '@/lib/types';
+import {hrefWith, queryValue} from '@/lib/viewQuery';
+
+function mediaQuery(source: {get(name: string): string | null}): {channel: string; user: string; range: DateRange} {
+    return {
+        channel: queryValue(source, 'channel'),
+        user: queryValue(source, 'user'),
+        range: {dateFrom: queryValue(source, 'from'), dateTo: queryValue(source, 'to')},
+    };
+}
 
 export default function MediaBrowser({workspace}: {workspace: string}) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const queryKey = searchParams.toString();
+    const initial = mediaQuery(searchParams);
     const [channels, setChannels] = useState<string[]>([]);
     const [people, setPeople] = useState<SlackUser[]>([]);
-    const [channel, setChannel] = useState('');
-    const [user, setUser] = useState('');
-    const [draftChannel, setDraftChannel] = useState('');
-    const [draftUser, setDraftUser] = useState('');
-    const [range, setRange] = useState<DateRange>(emptyRange());
-    const [draftRange, setDraftRange] = useState<DateRange>(emptyRange());
+    const [channel, setChannel] = useState(initial.channel);
+    const [user, setUser] = useState(initial.user);
+    const [draftChannel, setDraftChannel] = useState(initial.channel);
+    const [draftUser, setDraftUser] = useState(initial.user);
+    const [range, setRange] = useState<DateRange>(initial.range);
+    const [draftRange, setDraftRange] = useState<DateRange>(initial.range);
     const [page, setPage] = useState(1);
     const [items, setItems] = useState<ArchiveFile[]>([]);
     const [total, setTotal] = useState(0);
@@ -46,6 +61,17 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
             cancelled = true;
         };
     }, [workspace]);
+
+    useEffect(() => {
+        const next = mediaQuery(searchParams);
+        setDraftChannel(next.channel);
+        setDraftUser(next.user);
+        setDraftRange(next.range);
+        setChannel(next.channel);
+        setUser(next.user);
+        setRange(next.range);
+        setPage(1);
+    }, [queryKey]);
 
     useEffect(() => {
         let cancelled = false;
@@ -108,18 +134,28 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
         return () => window.removeEventListener('keydown', onKey);
     }, [active]);
 
-    const filterByUser = (uid: string) => {
+    const remember = (updates: Record<string, string>) => {
         setPage(1);
+        router.push(hrefWith(pathname, searchParams, updates));
+    };
+
+    const filterByUser = (uid: string) => {
         setDraftUser(uid);
         setUser(uid);
+        remember({user: uid, channel, from: range.dateFrom, to: range.dateTo});
     };
 
     const applyFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setPage(1);
         setChannel(draftChannel);
         setUser(draftUser);
         setRange({...draftRange});
+        remember({
+            channel: draftChannel,
+            user: draftUser,
+            from: draftRange.dateFrom,
+            to: draftRange.dateTo,
+        });
     };
 
     const hasMore = items.length < total && lastCount >= PAGE_SIZE;
