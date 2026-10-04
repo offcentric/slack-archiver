@@ -17,8 +17,7 @@ export default function LoginPage() {
     const [busy, setBusy] = useState(false);
     const shownError = error || sessionError || '';
 
-    const sendCode = async (event: FormEvent) => {
-        event.preventDefault();
+    const requestCode = async (resent: boolean) => {
         setError('');
         setNotice('');
         setBusy(true);
@@ -33,7 +32,14 @@ export default function LoginPage() {
             return;
         }
         setShowCode(true);
-        setNotice('If an account exists for that address, a 6-digit code is on its way.');
+        setNotice(resent
+            ? 'If an account exists for that address, a new code is on its way.'
+            : 'If an account exists for that address, a 6-digit code is on its way.');
+    };
+
+    const sendCode = async (event: FormEvent) => {
+        event.preventDefault();
+        await requestCode(false);
     };
 
     const login = async (event: FormEvent) => {
@@ -92,6 +98,11 @@ export default function LoginPage() {
                     <button type="submit" disabled={busy || !isEmail(email)}>
                         {showCode ? 'Sign in' : 'Send code'}
                     </button>
+                    {showCode && (
+                        <button type="button" className="text-link" disabled={busy || !isEmail(email)} onClick={() => requestCode(true)}>
+                            Resend code
+                        </button>
+                    )}
                 </div>
                 {notice && <p className="banner" role="status">{notice}</p>}
                 {shownError && <p className="banner error" role="alert">{shownError}</p>}

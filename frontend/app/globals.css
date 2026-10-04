@@ -60,7 +60,7 @@ button {
 button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(79, 60, 201, 0.28); }
 button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
-button.ghost, .sort, .channel, .thread-toggle, .thumb, .user-link, .account-trigger, .account-item {
+button.ghost, .sort, .channel, .thread-toggle, .thumb, .user-link, .account-trigger, .account-item, .text-link {
     background: transparent;
     color: inherit;
     box-shadow: none;
@@ -190,6 +190,17 @@ button.ghost:hover:not(:disabled) { border-color: var(--primary); color: var(--p
 }
 
 .login-card { padding: 2.25rem 2rem; max-width: 440px; margin: 8vh auto; text-align: center; }
+.text-link {
+    justify-self: start;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.text-link:hover:not(:disabled) { transform: none; box-shadow: none; color: var(--primary-2); }
 .login-card .stack { text-align: left; }
 .login-card h1, .browser-head h1, .thread h1, .panel h1 {
     font-family: Palatino, "Iowan Old Style", "Palatino Linotype", Georgia, serif;

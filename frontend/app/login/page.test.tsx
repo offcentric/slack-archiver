@@ -33,6 +33,8 @@ describe('login page', () => {
         expect(await screen.findByLabelText('Login code')).toBeTruthy();
         expect(screen.queryByRole('alert')).toBeNull();
         expect(screen.getByRole('status').textContent).toMatch(/If an account exists/);
+        await user.click(screen.getByRole('button', {name: 'Resend code'}));
+        expect(screen.getByRole('status').textContent).toMatch(/new code/);
     });
 
     it('shows an error when sending a code fails on the server', async () => {

@@ -11,6 +11,19 @@ interface SendEmailOptions {
   from?: string;
 }
 
+function mailErrorSummary(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return String(error);
+  }
+  const record = error as {status?: unknown; message?: unknown; details?: unknown};
+  const parts = [
+    record.status !== undefined && record.status !== null ? `status ${record.status}` : '',
+    typeof record.message === 'string' ? record.message : '',
+    typeof record.details === 'string' ? record.details.slice(0, 300) : '',
+  ].filter(Boolean);
+  return parts.join(': ') || 'unknown mail error';
+}
+
 export class MailgunProvider {
   private mailgun: any;
 
@@ -51,12 +64,15 @@ export class MailgunProvider {
       throw new Error('Either text or html content must be provided');
     }
 
+    console.log(`[login-code] mailgun create domain=${this.domain} from=${from} to=${to} subject=${subject} keySet=${Boolean(getEnvConfig('MAILGUN_API_KEY'))}`);
     try {
       const msg = await this.mailgun.messages.create(this.domain, {from, to, subject, text: plainText, html: html || plainText,});
+      console.log(`[login-code] mailgun accepted to=${to} id=${msg?.id || 'unknown'}`);
       return { id: msg.id };
     } catch (error) {
-      console.error('Error sending email:', error);
-      throw new Error(`Failed to send email: ${error.message}`);
+      const summary = mailErrorSummary(error);
+      console.error(`[login-code] mailgun rejected to=${to}: ${summary}`);
+      throw new Error(`Failed to send email: ${summary}`);
     }
   }
 }

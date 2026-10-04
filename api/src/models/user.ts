@@ -82,7 +82,6 @@ export class User extends GenericModel {
             throw new Exception('user_not_found');
         }
         const cachedCode = parseInt(getCache(cacheKey));
-        console.log("CACHED CODE 2", cacheKey, cachedCode, code);
         if(code !== cachedCode) {
             throw new Exception('invalid_code');
         }
@@ -93,15 +92,18 @@ export class User extends GenericModel {
     async sendLoginCode(email:string) {
         const code = Math.floor(100000 + Math.random() * 899999).toString();
         if(!await this._get({email:email}, false)) {
+            console.log(`[login-code] no account for ${email}; not sending`);
             return true;
         }
         try{
             const cacheKey = `auth_code_${email}`;
             setCache(cacheKey, code, 60*5);
-            console.log("CACHED CODE 1", cacheKey, getCache(cacheKey));
-            await sendMail(email, 'Slack Archiver login code', `<p>Hi,</p><p>Your login code is: <strong>${code}</strong></p><p>It will be valid for 5 minutes.</p>`, "html");
+            console.log(`[login-code] cached a code for ${email}; sending`);
+            const sent = await sendMail(email, 'Slack Archiver login code', `<p>Hi,</p><p>Your login code is: <strong>${code}</strong></p><p>It will be valid for 5 minutes.</p>`, "html");
+            console.log(`[login-code] sent to ${email} id=${sent?.id || 'unknown'}`);
         }catch(e){
-            console.error(e);
+            const message = e instanceof Error ? e.message : String(e);
+            console.error(`[login-code] failed for ${email}: ${message}`);
             throw new Exception('failed_to_send_code', e);
         }
         return true;
