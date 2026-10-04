@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {isEmail, loginErrorMessage, sendCodeOutcome, sessionOutcome, sessionUnavailableMessage} from './login';
 import {onlyWorkspace} from './types';
 import {buildMessageListBody, userIdsForFilter} from './messages';
-import {formatSlackText} from './slackText';
+import {formatSlackText, highlightTerms} from './slackText';
 
 describe('login', () => {
     it('hides every send-code failure except a server error', () => {
@@ -99,5 +99,15 @@ describe('slack text', () => {
     it('turns mentions into names', () => {
         const names = new Map([['U1', 'Ada']]);
         expect(formatSlackText('hi <@U1> see <#C1|general>', names)).toBe('hi Ada see #general');
+    });
+
+    it('marks only the searched words', () => {
+        expect(highlightTerms('Deploy the deploy script', 'deploy')).toEqual([
+            {text: 'Deploy', match: true},
+            {text: ' the ', match: false},
+            {text: 'deploy', match: true},
+            {text: ' script', match: false},
+        ]);
+        expect(highlightTerms('nothing here', 'deploy').every((part) => !part.match)).toBe(true);
     });
 });

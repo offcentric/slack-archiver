@@ -11,6 +11,22 @@ export function formatSlackText(text: string | null | undefined, names: Map<stri
         .replace(/<(https?:[^>]+)>/g, (_match, url: string) => url);
 }
 
+export function highlightTerms(text: string, query: string): Array<{text: string; match: boolean}> {
+    const terms = query
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (!text || !terms.length) {
+        return [{text, match: false}];
+    }
+    const pattern = new RegExp(`(${terms.join('|')})`, 'ig');
+    return text.split(pattern).filter((part) => part !== '').map((part) => ({
+        text: part,
+        match: terms.some((term) => new RegExp(`^${term}$`, 'i').test(part)),
+    }));
+}
+
 export function isVisualFile(file: { mimetype?: string | null; filetype?: string | null }): boolean {
     const mime = (file.mimetype || '').toLowerCase();
     if (mime.startsWith('image/') || mime.startsWith('video/')) {

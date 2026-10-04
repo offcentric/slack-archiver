@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {FormEvent, useEffect, useState} from 'react';
 import {archive} from '@/lib/client';
 import {formatWhen, itemsOf, messagePath, PAGE_SIZE} from '@/lib/messages';
-import {formatSlackText} from '@/lib/slackText';
+import {formatSlackText, highlightTerms} from '@/lib/slackText';
 import {ArchiveMessage} from '@/lib/types';
 
 export default function SearchBrowser({workspace}: {workspace: string}) {
@@ -96,12 +96,19 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
             {error && <p className="banner error" role="alert">{error}</p>}
             {searched && !hits.length && !error && <p className="status">No messages matched.</p>}
             <ul className="results">
-                {hits.map((hit) => (
-                    <li key={hit.ts}>
-                        <p className="muted">#{hit.channel} · {formatWhen(hit.datetime)}</p>
-                        <Link href={messagePath(workspace, hit.ts)}>{formatSlackText(hit.text) || hit.ts}</Link>
-                    </li>
-                ))}
+                {hits.map((hit) => {
+                    const text = formatSlackText(hit.text);
+                    const parts = highlightTerms(text, submitted?.q || '');
+                    return (
+                        <li key={hit.ts}>
+                            <p className="muted">#{hit.channel} · {formatWhen(hit.datetime)}</p>
+                            <p className="message-text">{text ? parts.map((part, index) => (
+                                part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>
+                            )) : '—'}</p>
+                            <p><Link href={messagePath(workspace, hit.ts)}>Go to message</Link></p>
+                        </li>
+                    );
+                })}
             </ul>
             {hits.length > 0 && (
                 <div className="pager">
