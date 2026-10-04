@@ -1,8 +1,14 @@
-export function sendCodeOutcome(status: number): 'continue' | 'unavailable' {
+export function sendCodeOutcome(status: number): 'continue' | 'unavailable' | 'limited' {
+    if (status === 429) {
+        return 'limited';
+    }
     return status >= 500 ? 'unavailable' : 'continue';
 }
 
 export function loginErrorMessage(status: number, apiMessage?: string): string {
+    if (status === 429 || apiMessage === 'rate_limited') {
+        return 'Too many sign-in attempts. Wait a minute and try again.';
+    }
     if (status >= 500) {
         return 'The archive is unavailable right now. Try again in a moment.';
     }

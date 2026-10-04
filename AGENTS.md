@@ -112,7 +112,7 @@ Base URL is the Express port (`PORT`, template `6969`). JSON in/out. Prefer **PO
 
 ### Auth
 
-1. `POST /user/sendlogincode` `{ email }` — if the email exists, Mailgun sends a 6-digit code cached 5 minutes (`auth_code_${email}`). Unknown emails still return success (no enumeration).
+1. `POST /user/sendlogincode` `{ email }` — if the email exists, Mailgun sends a 6-digit code cached 5 minutes (`auth_code_${email}`). Unknown emails still return success (no enumeration). The same address can request another code only after 60 seconds (`429` `rate_limited`, `detail` is the seconds remaining). `POST /user/login` allows 5 attempts per minute for an email and 20 per minute for an IP, then the same `429`.
 2. `POST /user/login` `{ email, code }` — returns the **user row plus** `session_id`. `workspaces` is an array of Slack identities (not bare names):
 
 ```json

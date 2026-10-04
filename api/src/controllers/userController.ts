@@ -10,6 +10,7 @@ import {status, successMessage} from "helpers/status";
 import {getWorkspaceNames, getWorkspaceUid} from "interfaces/user";
 import {Slackuser} from "models/slackuser";
 import Exception from "models/exception";
+import {consumeLoginAttempt} from "helpers/loginThrottle";
 
 export class UserController extends GenericController{
     tableName = 'user';
@@ -25,6 +26,11 @@ export class UserController extends GenericController{
             await checkNoSession(req, false);
             const payload = this.getPayload();
             try{
+                const retryAfter = consumeLoginAttempt(payload.email, String((new LocationHelper(req)).getIpAddress() || 'unknown'));
+                if (retryAfter > 0) {
+                    console.log(`[login] rate limited ${payload.email} for ${retryAfter}s`);
+                    throw new Exception('rate_limited', status.too_many_requests, String(retryAfter));
+                }
                 const userData = await this.model.enrichUserResponse(
                     await this.model.authenticate(payload.email, parseInt(payload.code))
                 );

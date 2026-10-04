@@ -9,6 +9,7 @@ describe('login', () => {
         expect(sendCodeOutcome(200)).toBe('continue');
         expect(sendCodeOutcome(400)).toBe('continue');
         expect(sendCodeOutcome(404)).toBe('continue');
+        expect(sendCodeOutcome(429)).toBe('limited');
         expect(sendCodeOutcome(500)).toBe('unavailable');
         expect(sendCodeOutcome(503)).toBe('unavailable');
     });
@@ -16,6 +17,7 @@ describe('login', () => {
     it('explains a bad one-time code', () => {
         expect(loginErrorMessage(401, 'auth_fail')).toMatch(/incorrect or has expired/);
         expect(loginErrorMessage(400, 'invalid_code_format')).toMatch(/6-digit/);
+        expect(loginErrorMessage(429, 'rate_limited')).toMatch(/Too many sign-in attempts/);
         expect(loginErrorMessage(500)).toMatch(/unavailable/);
     });
 

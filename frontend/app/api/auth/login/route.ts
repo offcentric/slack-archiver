@@ -9,9 +9,13 @@ export async function POST(req: Request) {
     const url = `${apiBase()}/user/login`;
     let upstream: Response;
     try {
+        const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
         upstream = await fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                ...(forwarded ? {'x-forwarded-for': forwarded} : {}),
+            },
             body: JSON.stringify({email, code}),
             cache: 'no-store',
         });

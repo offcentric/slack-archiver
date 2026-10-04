@@ -3,6 +3,8 @@ import {Request} from "express";
 import Metadata from "interfaces/_metadata";
 import {getWorkspaceNames, UserResponse, WorkspaceIdentity} from "interfaces/user";
 import {set as setCache, get as getCache } from "helpers/cache";
+import {clearCodeCooldown, reserveCodeSend} from "helpers/loginThrottle";
+import {status} from "helpers/status";
 import {clearSessionStore} from "helpers/auth";
 import Exception from "models/exception";
 import {sendMail} from "helpers/mail";
@@ -90,6 +92,11 @@ export class User extends GenericModel {
     }
 
     async sendLoginCode(email:string) {
+        const wait = reserveCodeSend(email);
+        if (wait > 0) {
+            console.log(`[login-code] cooldown ${wait}s for ${email}`);
+            throw new Exception('rate_limited', status.too_many_requests, String(wait));
+        }
         const code = Math.floor(100000 + Math.random() * 899999).toString();
         if(!await this._get({email:email}, false)) {
             console.log(`[login-code] no account for ${email}; not sending`);
@@ -102,6 +109,7 @@ export class User extends GenericModel {
             const sent = await sendMail(email, 'Slack Archiver login code', `<p>Hi,</p><p>Your login code is: <strong>${code}</strong></p><p>It will be valid for 5 minutes.</p>`, "html");
             console.log(`[login-code] sent to ${email} id=${sent?.id || 'unknown'}`);
         }catch(e){
+            await clearCodeCooldown(email);
             const message = e instanceof Error ? e.message : String(e);
             console.error(`[login-code] failed for ${email}: ${message}`);
             throw new Exception('failed_to_send_code', e);

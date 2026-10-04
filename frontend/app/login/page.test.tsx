@@ -33,8 +33,22 @@ describe('login page', () => {
         expect(await screen.findByLabelText('Login code')).toBeTruthy();
         expect(screen.queryByRole('alert')).toBeNull();
         expect(screen.getByRole('status').textContent).toMatch(/If an account exists/);
-        await user.click(screen.getByRole('button', {name: 'Resend code'}));
-        expect(screen.getByRole('status').textContent).toMatch(/new code/);
+        const resend = screen.getByRole('button', {name: /Resend code in 60s/});
+        expect((resend as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('shows the server wait when another code was requested too soon', async () => {
+        const user = userEvent.setup();
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            status: 429,
+            ok: false,
+            json: async () => ({message: 'rate_limited', retry_after: 42}),
+        }));
+        render(<LoginPage/>);
+        await user.type(screen.getByLabelText('Email'), 'ada@example.com');
+        await user.click(screen.getByRole('button', {name: 'Send code'}));
+        expect((await screen.findByRole('status')).textContent).toMatch(/42 seconds/);
+        expect((screen.getByRole('button', {name: /Resend code in 42s/}) as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('shows an error when sending a code fails on the server', async () => {

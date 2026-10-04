@@ -1,7 +1,7 @@
 'use client';
 
 import {useRouter} from 'next/navigation';
-import {FormEvent, useState} from 'react';
+import {FormEvent, useEffect, useState} from 'react';
 import Logo from '@/components/Logo';
 import {useSession} from '@/context/SessionContext';
 import {isEmail, loginErrorMessage, sendCodeOutcome} from '@/lib/login';
@@ -15,7 +15,16 @@ export default function LoginPage() {
     const [notice, setNotice] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    const [retryIn, setRetryIn] = useState(0);
     const shownError = error || sessionError || '';
+
+    useEffect(() => {
+        if (retryIn <= 0) {
+            return;
+        }
+        const timer = setTimeout(() => setRetryIn((current) => current - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [retryIn]);
 
     const requestCode = async (resent: boolean) => {
         setError('');
@@ -26,12 +35,22 @@ export default function LoginPage() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({email}),
         });
+        const data = await res.json().catch(() => ({}));
         setBusy(false);
-        if (sendCodeOutcome(res.status) === 'unavailable') {
+        const outcome = sendCodeOutcome(res.status);
+        if (outcome === 'unavailable') {
             setError('The archive is unavailable right now. Try again in a moment.');
             return;
         }
+        if (outcome === 'limited') {
+            const wait = Math.max(1, Number(data.retry_after) || 60);
+            setShowCode(true);
+            setRetryIn(wait);
+            setNotice(`You can request another code in ${wait} seconds.`);
+            return;
+        }
         setShowCode(true);
+        setRetryIn(60);
         setNotice(resent
             ? 'If an account exists for that address, a new code is on its way.'
             : 'If an account exists for that address, a 6-digit code is on its way.');
@@ -99,8 +118,8 @@ export default function LoginPage() {
                         {showCode ? 'Sign in' : 'Send code'}
                     </button>
                     {showCode && (
-                        <button type="button" className="text-link" disabled={busy || !isEmail(email)} onClick={() => requestCode(true)}>
-                            Resend code
+                        <button type="button" className="text-link" disabled={busy || retryIn > 0 || !isEmail(email)} onClick={() => requestCode(true)}>
+                            {retryIn > 0 ? `Resend code in ${retryIn}s` : 'Resend code'}
                         </button>
                     )}
                 </div>
