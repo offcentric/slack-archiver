@@ -109,7 +109,7 @@ describe('media browser', () => {
                 status: 200,
                 data: {
                     totalitems: 1,
-                    items: [{id: 4, title: 'Clip', user: 'U1', real_name: 'Ada', mimetype: 'image/png', created_at: '2026-01-01T10:00:00Z'}],
+                    items: [{id: 4, title: 'Clip', user: 'U1', real_name: 'Ada', mimetype: 'video/mp4', created_at: '2026-01-01T10:00:00Z'}],
                 },
             };
         });
@@ -121,5 +121,8 @@ describe('media browser', () => {
             expect(archive).toHaveBeenCalledWith('file/list', expect.objectContaining({user: 'U1', _page: 1}));
         });
         expect((screen.getByLabelText('User') as HTMLSelectElement).value).toBe('U1');
+        const permalink = screen.getByRole('link', {name: /2026/});
+        expect(permalink.getAttribute('href')).toBe('/w/acme/media/4');
+        expect(permalink.getAttribute('target')).toBe('_blank');
     });
 });

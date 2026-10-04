@@ -4,7 +4,8 @@ import {FormEvent, useEffect, useState} from 'react';
 import ArchiveMedia from '@/components/ArchiveMedia';
 import Spinner from '@/components/Spinner';
 import {archive} from '@/lib/client';
-import {formatWhen, itemsOf, PAGE_SIZE} from '@/lib/messages';
+import {formatWhen, itemsOf, mediaPath, PAGE_SIZE} from '@/lib/messages';
+import {isVideoFile} from '@/lib/slackText';
 import {appendPage, LoadMore} from '@/lib/useLoadMore';
 import {ArchiveFile, SlackUser} from '@/lib/types';
 
@@ -152,7 +153,13 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                             <button type="button" className="thumb" onClick={() => setActive(file)}>
                                 <ArchiveMedia file={file} muted/>
                             </button>
-                            <p>{formatWhen(file.created_at)}</p>
+                            <p>
+                                {isVideoFile(file) ? (
+                                    <a href={mediaPath(workspace, file.id)} target="_blank" rel="noopener noreferrer">
+                                        {formatWhen(file.created_at)}
+                                    </a>
+                                ) : formatWhen(file.created_at)}
+                            </p>
                             <p className="muted">
                                 {file.user ? (
                                     <button type="button" className="user-link" onClick={() => filterByUser(file.user || '')}>
