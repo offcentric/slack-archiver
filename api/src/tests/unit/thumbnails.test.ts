@@ -47,6 +47,7 @@ describe('video thumbnails', () => {
             expect(second).toBe('skipped');
             expect(fs.readFileSync(path.join(directory, '7.jpg'), 'utf8')).toBe('jpg');
             expect(extracted).toHaveLength(1);
+            expect(extracted[0].endsWith('.jpg')).toBe(true);
         } finally {
             fs.rmSync(source, {force: true});
             if (createdSourceDir) {

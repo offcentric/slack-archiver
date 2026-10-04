@@ -90,7 +90,12 @@ function runFfmpeg(args: string[]): Promise<void> {
 }
 
 async function extractFrameWithFfmpeg(input: string, output: string): Promise<void> {
-    const args = (offset: string) => ['-y', '-ss', offset, '-i', input, '-frames:v', '1', '-vf', 'scale=640:-2', '-q:v', '3', output];
+    const args = (offset: string) => [
+        '-hide_banner', '-loglevel', 'error',
+        '-y', '-ss', offset, '-i', input,
+        '-frames:v', '1', '-vf', 'scale=640:-2', '-q:v', '3',
+        output,
+    ];
     try {
         await runFfmpeg(args('1'));
     } catch (error) {
@@ -128,7 +133,8 @@ export async function generateThumbnailForFile(
         return 'failed';
     }
     const extract = options.extract ?? extractFrameWithFfmpeg;
-    const tmp = `${dest}.${process.pid}.part`;
+    // The temp name has to end in .jpg. ffmpeg picks the image format from the extension, and `.part` makes it refuse to write.
+    const tmp = `${dest.slice(0, -'.jpg'.length)}.${process.pid}.part.jpg`;
     try {
         await fs.promises.mkdir(path.dirname(dest), {recursive: true});
         await extract(source, tmp);
