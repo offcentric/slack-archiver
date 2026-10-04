@@ -1,14 +1,14 @@
+import {applyRange, DateRange} from './dateRange';
 import {ArchiveMessage, SlackUser} from './types';
 
 export const PAGE_SIZE = 40;
 
-export interface MessageFilters {
+export interface MessageFilters extends DateRange {
     text: string;
     user: string;
-    date: string;
 }
 
-export const emptyFilters = (): MessageFilters => ({text: '', user: '', date: ''});
+export const emptyFilters = (): MessageFilters => ({text: '', user: '', dateFrom: '', dateTo: ''});
 
 export function buildMessageListBody(input: {
     workspace: string;
@@ -33,11 +33,7 @@ export function buildMessageListBody(input: {
     if (input.userIds?.length) {
         body.user = input.userIds;
     }
-    if (input.filters.date) {
-        body.date_from = input.filters.date;
-        body.date_to = input.filters.date;
-    }
-    return body;
+    return applyRange(body, input.filters);
 }
 
 export function userIdsForFilter(query: string, people: SlackUser[]): string[] | undefined {

@@ -23,6 +23,8 @@ info:
     is still not a public URL. `POST /message/channels` lists every archived channel
     in a workspace. `POST /user/getchannels` remains the channels that person has
     posted in. Admin import is `POST /admin/sync` and `POST /admin/channels` (role 100).
+    `POST /admin/thumbnails` backfills JPG stills for archived videos. New videos are
+    also thumbnailed from the Slack webhook. Stills are served at `GET /file/thumbnail/{id}`.
 
     ---
 
@@ -122,8 +124,10 @@ info:
     ### Dates
 
     `date_from` / `date_to` are strings parsed with `new Date(...)`. Send ISO dates
-    (`2026-01-15` or `2026-01-15T00:00:00.000Z`). The server then compares **date-only**
-    (`yyyy-MM-dd`) with `>=` / `<=` on `message.datetime` or `file.created_at`.
+    (`2026-01-15` or `2026-01-15T00:00:00.000Z`). The server treats both as calendar
+    days on `message.datetime` or `file.created_at`: `date_from` is `>=` the start of
+    that day and `date_to` is `<` the start of the following day, so a range of
+    `2026-01-15` to `2026-01-15` returns everything posted on that day.
 
     Invalid dates → `400` `invalid_date_from` / `invalid_date_to`.
 
@@ -864,6 +868,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /file/thumbnail/{id}:
+    get:
+      tags: [Files]
+      operationId: getFileThumbnail
+      summary: Stream a generated JPEG still for an archived video
+      description: |
+        Authenticated via `Authorization: Bearer`. `id` is the numeric file primary key.
+        The file's `workspace` must be on the session. The still is `static/thumbnails/{id}.jpg`,
+        created by `POST /admin/thumbnails` or by the Slack webhook when a message includes a video.
+        The response body is `image/jpeg`, not JSON.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: JPEG thumbnail
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '404':
+          description: '`thumbnail_not_found`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /message/channels:
     post:
       tags: [Messages]
@@ -996,6 +1037,63 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           description: '`admin_only` or `no_access_to_workspace`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/thumbnails:
+    post:
+      tags: [Admin]
+      operationId: backfillVideoThumbnails
+      summary: Generate missing JPEG stills for archived videos
+      description: |
+        Admin role only (`role` 100). Walks video files in `workspace` and writes
+        `static/thumbnails/{id}.jpg` for each one that does not already have a still.
+        Requires `ffmpeg` on the API host. The call blocks until the batch finishes.
+        `403` `admin_only` for other roles, or `no_access_to_workspace` when the
+        workspace is outside the session ACL. `500` `ffmpeg_not_available` when
+        ffmpeg is not installed.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace]
+              properties:
+                workspace:
+                  type: string
+      responses:
+        '200':
+          description: Batch finished
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspace:
+                    type: string
+                  total:
+                    type: integer
+                  generated:
+                    type: integer
+                  skipped:
+                    type: integer
+                  failed:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`admin_only` or `no_access_to_workspace`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: '`ffmpeg_not_available`'
           content:
             application/json:
               schema:

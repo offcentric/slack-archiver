@@ -2,8 +2,10 @@
 
 import {FormEvent, useEffect, useState} from 'react';
 import ArchiveMedia from '@/components/ArchiveMedia';
+import DateRangeFields from '@/components/DateRangeFields';
 import Spinner from '@/components/Spinner';
 import {archive} from '@/lib/client';
+import {applyRange, DateRange, emptyRange} from '@/lib/dateRange';
 import {formatWhen, itemsOf, mediaPath, PAGE_SIZE} from '@/lib/messages';
 import {isVideoFile} from '@/lib/slackText';
 import {appendPage, LoadMore} from '@/lib/useLoadMore';
@@ -16,6 +18,8 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
     const [user, setUser] = useState('');
     const [draftChannel, setDraftChannel] = useState('');
     const [draftUser, setDraftUser] = useState('');
+    const [range, setRange] = useState<DateRange>(emptyRange());
+    const [draftRange, setDraftRange] = useState<DateRange>(emptyRange());
     const [page, setPage] = useState(1);
     const [items, setItems] = useState<ArchiveFile[]>([]);
     const [total, setTotal] = useState(0);
@@ -64,6 +68,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
             if (user) {
                 body.user = user;
             }
+            applyRange(body, range);
             const res = await archive<{items?: ArchiveFile[]; totalitems?: number}>('file/list', body);
             if (cancelled) {
                 return;
@@ -88,7 +93,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
         return () => {
             cancelled = true;
         };
-    }, [workspace, channel, user, page]);
+    }, [workspace, channel, user, range, page]);
 
     useEffect(() => {
         if (!active) {
@@ -114,6 +119,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
         setPage(1);
         setChannel(draftChannel);
         setUser(draftUser);
+        setRange({...draftRange});
     };
 
     const hasMore = items.length < total && lastCount >= PAGE_SIZE;
@@ -141,6 +147,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                         ))}
                     </select>
                 </label>
+                <DateRangeFields value={draftRange} onChange={setDraftRange}/>
                 <button type="submit">Apply</button>
             </form>
             {error && <p className="banner error" role="alert">{error}</p>}

@@ -3,6 +3,8 @@ import {Slackuser} from "models/slackuser";
 import {initSlack}  from 'providers/slack';
 import {getEnvConfig} from "helpers/config";
 import {Message} from "models/message";
+import {db} from '../db/knex';
+import {generateThumbnailsForSlackFiles} from "helpers/thumbnails";
 
 export const process = async (req, res) => {
 
@@ -71,6 +73,11 @@ export const process = async (req, res) => {
             }
 
             ret = await (new Message(req)).save(message, workspace, channelName, event.thread_ts);
+            if (event.subtype !== 'message_deleted' && Array.isArray(message.files)) {
+                void generateThumbnailsForSlackFiles(db, message.files, workspace).catch((error) => {
+                    console.error('[thumbnails]', error instanceof Error ? error.message : error);
+                });
+            }
         }else if(eventType === 'team_join'){
             const userData = event.user;
             ret = {id: await (new Slackuser(req)).save(userData, workspace)}

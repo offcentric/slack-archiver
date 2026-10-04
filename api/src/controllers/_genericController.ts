@@ -151,7 +151,10 @@ export class GenericController{
             if(isNaN(dateTo.getTime())) {
                 throw new Exception('invalid_date_to', status.bad);
             }
-            payload[dateField].push({'<=': getDate(dateTo)});
+            // date_to is a calendar day; include everything on that day.
+            const nextDay = new Date(dateTo.getTime());
+            nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+            payload[dateField].push({'<': getDate(nextDay)});
             delete payload.date_to;
         }
     }

@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe('message browser', () => {
-    it('loads the first channel and waits for Enter before filtering', async () => {
+    it('loads the first channel and waits for Apply before filtering', async () => {
         archive.mockImplementation(async (path: string) => {
             if (path === 'message/channels') {
                 return {ok: true, status: 200, data: {items: ['general', 'random']}};
@@ -58,13 +58,19 @@ describe('message browser', () => {
         const callsBeforeFilter = archive.mock.calls.filter((call) => call[0] === 'message/listthreaded').length;
 
         await user.type(screen.getByLabelText('Filter message text'), 'deploy');
+        await user.selectOptions(screen.getByLabelText('Browse by year'), '2025');
+        expect((screen.getByLabelText('From date') as HTMLInputElement).value).toBe('2025-01-01');
+        expect((screen.getByLabelText('To date') as HTMLInputElement).value).toBe('2025-12-31');
         expect(archive.mock.calls.filter((call) => call[0] === 'message/listthreaded')).toHaveLength(callsBeforeFilter);
 
-        await user.keyboard('{Enter}');
+        await user.click(screen.getByRole('button', {name: 'Apply'}));
         await waitFor(() => {
             expect(archive).toHaveBeenCalledWith('message/listthreaded', expect.objectContaining({
                 channel: 'general',
                 text: 'deploy',
+                date_from: '2025-01-01',
+                date_to: '2025-12-31',
+                _page: 1,
             }));
         });
         expect(screen.getByRole('button', {name: '#general'}).getAttribute('aria-current')).toBe('true');
@@ -145,7 +151,9 @@ describe('message browser', () => {
                 _page: 1,
             }));
         });
-        expect((screen.getByLabelText('Filter by author') as HTMLInputElement).value).toBe('Ada Lovelace');
+        const author = screen.getByLabelText('Filter by author') as HTMLSelectElement;
+        expect(author.value).toBe('U1');
+        expect(author.options[author.selectedIndex].textContent).toBe('Ada Lovelace');
     });
 
     it('appends the next page when the bottom of the list is visible', async () => {

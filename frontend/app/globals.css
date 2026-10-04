@@ -278,8 +278,6 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .grid tbody tr:last-child td { border-bottom: 0; }
 .grid tbody tr:hover td { background: #faf8ff; }
 .sort { padding: 0; font-weight: 700; color: var(--primary); }
-.filters th { background: #faf8ff; }
-.filters input { width: 100%; }
 .message-text { white-space: pre-wrap; }
 
 .has-thread td { background: #fbfaff; }
@@ -404,7 +402,7 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .results { display: grid; gap: 0.75rem; }
 .results li { padding: 0.9rem 1rem; }
 .admin { display: grid; gap: 1rem; }
-.admin-actions { display: flex; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 
 @media (max-width: 800px) {
     .browser { grid-template-columns: 1fr; }

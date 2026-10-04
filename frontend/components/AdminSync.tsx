@@ -81,6 +81,23 @@ export default function AdminSync({user}: {user: UserProfile}) {
         setStatus(`Imported ${res.data.imported ?? 0} messages from #${channel}.`);
     };
 
+    const generateThumbnails = async () => {
+        setBusy(true);
+        setError('');
+        setStatus('Generating thumbnails for videos that do not have one yet. This can take several minutes.');
+        const res = await archive<{generated?: number; skipped?: number; failed?: number}>('admin/thumbnails', {workspace});
+        setBusy(false);
+        if (!res.ok) {
+            setStatus('');
+            setError('Thumbnail generation failed. Confirm ffmpeg is installed on the archive server and try again.');
+            return;
+        }
+        const generated = res.data.generated ?? 0;
+        const skipped = res.data.skipped ?? 0;
+        const failed = res.data.failed ?? 0;
+        setStatus(`Thumbnails for ${workspace}: ${generated} created, ${skipped} already present, ${failed} failed.`);
+    };
+
     return (
         <section className="panel admin">
             <header className="browser-head">
@@ -97,6 +114,7 @@ export default function AdminSync({user}: {user: UserProfile}) {
             </label>
             <div className="admin-actions">
                 <button type="button" onClick={syncUsers} disabled={busy || !workspace}>Sync Slack users</button>
+                <button type="button" onClick={generateThumbnails} disabled={busy || !workspace}>Generate video thumbnails</button>
             </div>
             <form className="toolbar" onSubmit={syncMessages}>
                 <label>

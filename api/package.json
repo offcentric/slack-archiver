@@ -18,6 +18,7 @@
     "saveFile": "tsx src/scripts/file.save.ts",
     "getFile": "tsx src/scripts/file.info.ts",
     "fixAttachments": "tsx src/scripts/attachment.fix.ts",
+    "thumbnails": "tsx src/scripts/thumbnails.ts",
     "test": "vitest run",
     "test:unit": "vitest run src/tests/unit",
     "test:integration": "vitest run src/tests/integration",

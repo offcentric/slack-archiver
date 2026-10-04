@@ -12,4 +12,7 @@ export const PayloadFields: PayloadInterface = {
     channels: {
         workspace: {type: 'string', required: true},
     },
+    thumbnails: {
+        workspace: {type: 'string', required: true},
+    },
 };

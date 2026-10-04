@@ -11,6 +11,10 @@ export function fileSrc(file: ArchiveFile): string {
     return `/api/files/${file.id}`;
 }
 
+export function thumbnailSrc(file: ArchiveFile): string {
+    return `/api/files/${file.id}/thumbnail`;
+}
+
 interface Props {
     file: ArchiveFile;
     controls?: boolean;
@@ -33,6 +37,16 @@ export default function ArchiveMedia({file, controls = false, autoPlay = false, 
             ? <img className={className} src={VIDEO_PLACEHOLDER_SRC} alt={`${label} (video unavailable)`} data-placeholder="true"/>
             : <img className={className} src={PLACEHOLDER_SRC} alt={`${label} (no preview)`} data-placeholder="true"/>;
     }
+    if (video && !controls) {
+        return (
+            <img
+                className={className}
+                src={thumbnailSrc(file)}
+                alt={`${label} (video)`}
+                onError={() => setFailed(true)}
+            />
+        );
+    }
     if (video) {
         return (
             <video
@@ -42,7 +56,7 @@ export default function ArchiveMedia({file, controls = false, autoPlay = false, 
                 autoPlay={autoPlay}
                 muted={muted}
                 preload="metadata"
-                poster={VIDEO_PLACEHOLDER_SRC}
+                poster={thumbnailSrc(file)}
                 aria-label={`${label} (video)`}
                 onError={() => setFailed(true)}
             />

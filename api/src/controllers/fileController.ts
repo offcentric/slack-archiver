@@ -7,6 +7,7 @@ import {getWorkspaceNames} from "interfaces/user";
 import {getEnvConfig} from "helpers/config";
 import {contentDispositionFilename, FILE_SORT_COLUMNS, sanitizeOrderBy} from "helpers/archiveQuery";
 import {archiveRoots, resolveArchiveFile} from "helpers/fileAccess";
+import {thumbnailPathForId} from "helpers/thumbnails";
 import Exception from "models/exception";
 import {status} from "helpers/status";
 
@@ -71,6 +72,31 @@ export class FileController extends GenericController{
             return this.returnExceptionAsError(res, e);
         }
     }
+
+    async thumbnail(req:Request, res:Response) {
+        try {
+            const sessionData = await checkAuth(req);
+            const id = parseInt(String(req.params.id), 10);
+            if (!id) {
+                throw new Exception('invalid_file_id', status.bad);
+            }
+            const file = await this.model._get({id}, true, true);
+            const allowed = getWorkspaceNames(sessionData.workspaces);
+            if (!file?.workspace || !allowed.includes(file.workspace)) {
+                throw new Exception('no_access_to_workspace', status.forbidden);
+            }
+            const target = thumbnailPathForId(id);
+            if (!target || !fs.existsSync(target)) {
+                throw new Exception('thumbnail_not_found', status.notfound);
+            }
+            res.setHeader('Content-Type', 'image/jpeg');
+            res.setHeader('Cache-Control', 'private, max-age=86400');
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            fs.createReadStream(target).pipe(res);
+        } catch (e) {
+            return this.returnExceptionAsError(res, e);
+        }
+    }
 }
 
 export const get = async(req:Request, res:Response) => {
@@ -83,4 +109,8 @@ export const list = async(req:Request, res:Response) => {
 
 export const content = async(req:Request, res:Response) => {
     return await (new FileController(req)).content(req, res);
+}
+
+export const thumbnail = async(req:Request, res:Response) => {
+    return await (new FileController(req)).thumbnail(req, res);
 }

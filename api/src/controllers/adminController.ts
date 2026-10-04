@@ -3,6 +3,8 @@ import {requireAdmin} from "helpers/admin";
 import {getPayload} from "helpers/payloadFields";
 import {returnExceptionAsError, returnSuccess} from "helpers/response";
 import {getWorkspaceNames} from "interfaces/user";
+import {db} from '../db/knex';
+import {backfillThumbnails} from "helpers/thumbnails";
 import {initSlack} from "providers/slack";
 import {Slackuser} from "models/slackuser";
 import {Message} from "models/message";
@@ -49,6 +51,18 @@ export const sync = async (req: Request, res: Response) => {
         }
 
         throw new Exception('invalid_sync_action', status.bad);
+    } catch (e) {
+        return returnExceptionAsError(res, e);
+    }
+};
+
+export const thumbnails = async (req: Request, res: Response) => {
+    try {
+        const session = await requireAdmin(req);
+        const payload = getPayload(req);
+        assertWorkspace(session.workspaces, payload.workspace);
+        const summary = await backfillThumbnails(db, payload.workspace);
+        return returnSuccess(res, {workspace: payload.workspace, ...summary});
     } catch (e) {
         return returnExceptionAsError(res, e);
     }

@@ -16,14 +16,21 @@ describe('archive media', () => {
         expect(fallback.getAttribute('src')).toBe(PLACEHOLDER_SRC);
     });
 
-    it('marks videos with a video poster instead of the missing-image placeholder', () => {
-        const {container} = render(<ArchiveMedia file={{id: 8, title: 'Clip', mimetype: 'video/mp4'}}/>);
-        const video = container.querySelector('video');
-        expect(video?.getAttribute('poster')).toBe(VIDEO_PLACEHOLDER_SRC);
-        expect(video?.getAttribute('poster')).not.toBe(PLACEHOLDER_SRC);
+    it('uses a generated thumbnail for a video and falls back when that thumbnail is missing', () => {
+        render(<ArchiveMedia file={{id: 8, title: 'Clip', mimetype: 'video/mp4'}}/>);
+        const img = screen.getByRole('img', {name: 'Clip (video)'});
+        expect(img.getAttribute('src')).toBe('/api/files/8/thumbnail');
 
-        fireEvent.error(video!);
+        fireEvent.error(img);
         const fallback = screen.getByRole('img', {name: 'Clip (video unavailable)'});
         expect(fallback.getAttribute('src')).toBe(VIDEO_PLACEHOLDER_SRC);
+        expect(fallback.getAttribute('src')).not.toBe(PLACEHOLDER_SRC);
+    });
+
+    it('plays a video with its thumbnail as the poster', () => {
+        const {container} = render(<ArchiveMedia file={{id: 8, title: 'Clip', mimetype: 'video/mp4'}} controls/>);
+        const video = container.querySelector('video');
+        expect(video?.getAttribute('src')).toBe('/api/files/8');
+        expect(video?.getAttribute('poster')).toBe('/api/files/8/thumbnail');
     });
 });

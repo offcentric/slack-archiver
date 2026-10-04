@@ -1,10 +1,11 @@
 'use client';
 
 import Attachments from '@/components/Attachments';
+import DateRangeFields from '@/components/DateRangeFields';
 import Spinner from '@/components/Spinner';
 import Link from 'next/link';
 import {useRouter, useSearchParams} from 'next/navigation';
-import {FormEvent, Fragment, KeyboardEvent, useEffect, useMemo, useState} from 'react';
+import {FormEvent, Fragment, useEffect, useMemo, useState} from 'react';
 import {archive} from '@/lib/client';
 import {
     authorName,
@@ -149,20 +150,8 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
 
     const applyFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const data = new FormData(event.currentTarget);
         setPage(1);
-        setApplied({
-            date: String(data.get('date') || ''),
-            user: String(data.get('user') || ''),
-            text: String(data.get('text') || ''),
-        });
-    };
-
-    const onFilterKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
-        }
+        setApplied({...draft});
     };
 
     const filterByAuthor = (message: ArchiveMessage) => {
@@ -170,7 +159,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
             return;
         }
         setPage(1);
-        setDraft((current) => ({...current, user: authorName(message, names)}));
+        setDraft((current) => ({...current, user: message.user || ''}));
         setApplied((current) => ({...current, user: message.user || ''}));
     };
 
@@ -226,7 +215,36 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                 {error && <p className="banner error" role="alert">{error}</p>}
                 {!activeChannel && !loading && <p className="status">This workspace has no archived channels to browse.</p>}
                 {activeChannel && (
-                    <form onSubmit={applyFilters}>
+                    <>
+                        <form className="toolbar" onSubmit={applyFilters}>
+                            <label>
+                                Author
+                                <select
+                                    aria-label="Filter by author"
+                                    value={draft.user}
+                                    onChange={(event) => setDraft({...draft, user: event.target.value})}
+                                >
+                                    <option value="">Everyone</option>
+                                    {people.map((person) => (
+                                        <option key={person.uid} value={person.uid}>{person.real_name || person.name || person.uid}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <DateRangeFields
+                                value={{dateFrom: draft.dateFrom, dateTo: draft.dateTo}}
+                                onChange={(range) => setDraft({...draft, ...range})}
+                            />
+                            <label className="grow">
+                                Text
+                                <input
+                                    aria-label="Filter message text"
+                                    placeholder="Message text"
+                                    value={draft.text}
+                                    onChange={(event) => setDraft({...draft, text: event.target.value})}
+                                />
+                            </label>
+                            <button type="submit">Apply</button>
+                        </form>
                         <table className="grid">
                             <thead>
                                 <tr>
@@ -241,39 +259,6 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                         </th>
                                     ))}
                                     <th>Replies</th>
-                                </tr>
-                                <tr className="filters">
-                                    <th>
-                                        <input
-                                            type="date"
-                                            name="date"
-                                            aria-label="Filter by date"
-                                            value={draft.date}
-                                            onChange={(event) => setDraft({...draft, date: event.target.value})}
-                                            onKeyDown={onFilterKeyDown}
-                                        />
-                                    </th>
-                                    <th>
-                                        <input
-                                            name="user"
-                                            aria-label="Filter by author"
-                                            placeholder="Author, then Enter"
-                                            value={draft.user}
-                                            onChange={(event) => setDraft({...draft, user: event.target.value})}
-                                            onKeyDown={onFilterKeyDown}
-                                        />
-                                    </th>
-                                    <th>
-                                        <input
-                                            name="text"
-                                            aria-label="Filter message text"
-                                            placeholder="Message text, then Enter"
-                                            value={draft.text}
-                                            onChange={(event) => setDraft({...draft, text: event.target.value})}
-                                            onKeyDown={onFilterKeyDown}
-                                        />
-                                    </th>
-                                    <th/>
                                 </tr>
                             </thead>
                             <tbody aria-busy={loading} data-stale={loading && messages.length > 0 ? 'true' : undefined}>
@@ -327,13 +312,13 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                 })}
                                 {!loading && messages.length === 0 && (
                                     <tr>
-                                        <td colSpan={4}>No messages match this channel.</td>
+                                        <td colSpan={4}>No messages match these filters.</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
                         <LoadMore enabled={hasMore && !loading} pending={loadingMore} onLoad={() => setPage((value) => value + 1)}/>
-                    </form>
+                    </>
                 )}
             </section>
         </div>

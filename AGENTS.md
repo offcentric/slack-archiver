@@ -71,7 +71,7 @@ attachment.block_ids[] → block.id
 
 **`message`** — archive unit. Unique on Slack `ts` (string). `channel` is the **channel name**, not Slack ID. `datetime` is derived from `ts`. `text` is the only FTS field. `reply_to` is the parent message `ts` for thread replies (null for top-level). `POST /message/listthreaded` returns parents in `items` and nested `replies[]` (always chronological).
 
-**`file`** — Slack files. `uid` unique. `url` is Slack `url_private`; `savepath` is the local download path. Binaries live under `FILES_DOWNLOAD_DIRECTORY` (default repo `files/`) as `{workspace}/{channel}/{title}--{id}.{ext}`. `GET /file/content/{id}` streams that file when the path stays inside the download directory and the workspace is on the session.
+**`file`** — Slack files. `uid` unique. `url` is Slack `url_private`; `savepath` is the local download path. Binaries live under `FILES_DOWNLOAD_DIRECTORY` (default repo `files/`) as `{workspace}/{channel}/{title}--{id}.{ext}`. `GET /file/content/{id}` streams that file when the path stays inside the download directory and the workspace is on the session. Video stills are `static/thumbnails/{id}.jpg`, served by `GET /file/thumbnail/{id}`.
 
 **`attachment`** — unfurls / link attachments (title, text, URLs).
 
@@ -91,7 +91,7 @@ Auth is Slack `body.token` vs `SLACK_VERIFICATION_TOKEN_<WORKSPACE>` (workspace 
 
 Handled events: `message` (including edits/deletes), `team_join`, channel/group created/deleted/renamed/archived/unarchived. Ignored channels: `SLACK_IGNORED_CHANNELS_<WORKSPACE>`. Errors can post to `SLACK_ALERTS_CHANNEL_<WORKSPACE>` (default `alerts`).
 
-Message save: attachments → files (download + upsert) → blocks → upsert message on `ts`. Deletes remove the message and related child rows.
+Message save: attachments → files (download + upsert) → blocks → upsert message on `ts`. Deletes remove the message and related child rows. After a message with a video is saved, the webhook starts thumbnail generation for that file (`ffmpeg`, one JPEG under `static/thumbnails/`). A missing `ffmpeg` binary is logged and does not fail the webhook.
 
 ### CLI (`api/`, from that directory)
 
@@ -102,6 +102,7 @@ Message save: attachments → files (download + upsert) → blocks → upsert me
 | `saveUsers` / `listUsers` | Slack members → `slackuser` |
 | `listChannels` | Name → ID map |
 | `saveFile` / `getFile` / `fixAttachments` | File/attachment utilities |
+| `thumbnails -- [workspace] [--force]` | JPEG stills for archived videos → `static/thumbnails/{id}.jpg`. Skips existing stills unless `--force` |
 
 ## REST API
 
@@ -153,14 +154,16 @@ Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is om
 | POST/GET | `/file/list` | yes | `workspace?`, `user?`, `channel?`, `media?`, `date_from?`, `date_to?`, pagination | paginated collection. `media: true` returns images and videos; `channel` then limits them to files attached in that channel |
 | POST | `/file/get` | yes | `id` | file row |
 | GET | `/file/content/{id}` | yes | — | file bytes when `savepath` is inside `FILES_DOWNLOAD_DIRECTORY` and the workspace is allowed |
+| GET | `/file/thumbnail/{id}` | yes | — | JPEG still at `static/thumbnails/{id}.jpg` when the workspace is allowed |
 | POST | `/message/channels` | yes | `workspace` | `{ items }` distinct archived channel names |
 | POST | `/admin/sync` | admin (`role` 100) | `action` `users` or `messages`, `workspace`, `channel?`, `limit?` | Slack import. Does not import DMs |
+| POST | `/admin/thumbnails` | admin (`role` 100) | `workspace` | Backfill missing video stills with ffmpeg. `npm run thumbnails -- [workspace] [--force]` in `api/` does the same |
 | POST | `/admin/channels` | admin (`role` 100) | `workspace` | public and private Slack channel names for the sync form |
 | POST | `/slackuser/list` | yes | `workspace?` | `{ items }` (no pagination flag) |
 | POST | `/slackuser/get` | yes | index fields | slackuser row |
 | POST | `/webhook` | Slack token | Events API body; `?workspace=` | challenge or save result |
 
-Pagination (list): `_limit`, `_page` (offset `(page-1)*limit`), `_orderby`. Dates: `date_from` / `date_to` rewritten to `datetime` (messages) or `created_at` (files) with `>=` / `<=`.
+Pagination (list): `_limit`, `_page` (offset `(page-1)*limit`), `_orderby`. Dates: `date_from` / `date_to` are calendar days rewritten to `datetime` (messages) or `created_at` (files); `date_from` is `>=` that day and `date_to` is `<` the following day, so both ends are inclusive.
 
 List items include joined children when `show_in_list` is set on the relation (messages typically include `slackuser`, `files`, `attachments`, `blocks`).
 

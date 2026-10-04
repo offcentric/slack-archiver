@@ -62,7 +62,7 @@ describe('message list requests', () => {
             channel: 'general',
             page: 2,
             orderBy: ['datetime', 'desc'],
-            filters: {text: 'deploy', user: 'Ada', date: '2026-01-15'},
+            filters: {text: 'deploy', user: 'U123', dateFrom: '2026-01-01', dateTo: '2026-01-31'},
             userIds: ['U123'],
         });
         expect(body).toMatchObject({
@@ -72,9 +72,18 @@ describe('message list requests', () => {
             _orderby: ['datetime', 'desc'],
             text: 'deploy',
             user: ['U123'],
-            date_from: '2026-01-15',
-            date_to: '2026-01-15',
+            date_from: '2026-01-01',
+            date_to: '2026-01-31',
         });
+        const open = buildMessageListBody({
+            workspace: 'acme',
+            channel: 'general',
+            page: 1,
+            orderBy: ['ts', 'desc'],
+            filters: {text: '', user: '', dateFrom: '', dateTo: ''},
+        });
+        expect(open).not.toHaveProperty('date_from');
+        expect(open).not.toHaveProperty('date_to');
     });
 
     it('maps an author name to Slack ids and misses to an empty result', () => {

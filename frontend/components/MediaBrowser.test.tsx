@@ -84,6 +84,7 @@ describe('media browser', () => {
 
         await user.selectOptions(screen.getByLabelText('Channel'), 'random');
         await user.selectOptions(screen.getByLabelText('User'), 'U1');
+        await user.selectOptions(screen.getByLabelText('Browse by year'), '2024');
         expect(archive.mock.calls.filter((call) => call[0] === 'file/list')).toHaveLength(callsBefore);
 
         await user.click(screen.getByRole('button', {name: 'Apply'}));
@@ -91,6 +92,8 @@ describe('media browser', () => {
             expect(archive).toHaveBeenCalledWith('file/list', expect.objectContaining({
                 channel: 'random',
                 user: 'U1',
+                date_from: '2024-01-01',
+                date_to: '2024-12-31',
                 _page: 1,
             }));
         });
