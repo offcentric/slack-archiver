@@ -2,7 +2,10 @@ import {PayloadInterface} from '../interfaces/payload.js';
 
 export const PayloadFields:PayloadInterface = {
     list: {
-        user: {type:'object', table: 'user', relationType: 'many'},
+        user: {type:'string'},
+        workspace: {type:'string'},
+        channel: {type:'string'},
+        media: {type:'boolean'},
         date_from: {type:'string'},
         date_to: {type:'string'},
     },

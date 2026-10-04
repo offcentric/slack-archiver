@@ -90,6 +90,26 @@ class SlackProvider {
         return ret;
     }
 
+    async listArchiveChannels(): Promise<string[]> {
+        const names = new Set<string>();
+        let cursor: string | undefined;
+        do {
+            const resp = await this.slack.conversations.list({
+                types: 'public_channel,private_channel',
+                limit: 200,
+                cursor,
+                exclude_archived: false,
+            });
+            for (const channel of resp.channels ?? []) {
+                if (channel.name && !channel.is_im && !channel.is_mpim) {
+                    names.add(channel.name);
+                }
+            }
+            cursor = resp.response_metadata?.next_cursor || undefined;
+        } while (cursor);
+        return [...names].sort((a, b) => a.localeCompare(b));
+    }
+
     async refeshChannelList(){
         this.cache.del(this.channelListCacheKey);
         console.log("CHANNEL LIST", await this.getChannelList());

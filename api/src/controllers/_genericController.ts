@@ -1,4 +1,5 @@
 import {checkAuth} from '../helpers/auth';
+import {getWorkspaceNames} from '../interfaces/user';
 import {getDate} from "../helpers/date";
 import {isProductionEnvironment} from '../helpers/env';
 import { returnSuccess, returnError, returnExceptionAsError, handleError, redirect } from '../helpers/response';
@@ -121,13 +122,14 @@ export class GenericController{
     }
 
     handleWorkspaceFilter(res, payload, sessionData){
+        const allowed = getWorkspaceNames(sessionData.workspaces);
         if(payload.workspace){
-            if(!sessionData.workspaces.includes(payload.workspace)){
+            if(!allowed.includes(payload.workspace)){
                 throw new Exception('no_access_to_workspace', status.forbidden);
             }
             payload.workspace = [payload.workspace];
         }else{
-            payload.workspace =  sessionData.workspaces;
+            payload.workspace = allowed;
         }
     }
 

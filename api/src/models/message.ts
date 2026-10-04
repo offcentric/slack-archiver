@@ -8,6 +8,7 @@ import {Block} from "../models/block";
 import Exception from "../models/exception";
 import {Slackuser} from "models/slackuser";
 import {initSlack}  from '../providers/slack';
+import {db} from '../db/knex';
 
 const metadata:Array<Metadata> = [
     {
@@ -224,8 +225,97 @@ export class Message extends GenericModel {
 
     async enrichItem(item) {
         if (this.showExtendedData('replies')) {
-            const replies = (await this._getCollection({reply_to: item.ts}, ['ts'])).items;
+            const replies = (await this._getCollection({reply_to: item.ts}, ['ts', 'asc'])).items;
             item.replies = replies;
         }
+    }
+
+    async attachReplies(items: Array<Record<string, any>>, filters: Record<string, any> = {}): Promise<void> {
+        for (const item of items) {
+            item.replies = [];
+        }
+        const parentTs = items.map((item) => item.ts).filter(Boolean);
+        if (!parentTs.length) {
+            return;
+        }
+
+        const savedLimit = this.limit;
+        this.limit = null;
+        try {
+            const params: Record<string, any> = {reply_to: parentTs};
+            if (filters.workspace) {
+                params.workspace = filters.workspace;
+            }
+            if (filters.channel) {
+                params.channel = filters.channel;
+            }
+            const {items: replies} = await this._getCollection(params, ['ts', 'asc']);
+            const byParent = new Map<string, Array<Record<string, any>>>();
+            for (const reply of replies) {
+                const key = reply.reply_to;
+                if (!key) {
+                    continue;
+                }
+                const bucket = byParent.get(key);
+                if (bucket) {
+                    bucket.push(reply);
+                } else {
+                    byParent.set(key, [reply]);
+                }
+            }
+            for (const item of items) {
+                const children = byParent.get(item.ts) || [];
+                children.sort((a, b) => String(a.ts).localeCompare(String(b.ts), 'en', {numeric: true}));
+                item.replies = children;
+            }
+        } finally {
+            this.limit = savedLimit;
+        }
+    }
+
+    async attachParents(items: Array<Record<string, any>>, workspace?: string | string[]): Promise<void> {
+        const wanted = [...new Set(items.map((item) => item.reply_to).filter(Boolean))];
+        if (!wanted.length) {
+            return;
+        }
+        let query = db(this.tableName).whereIn('ts', wanted).select('ts', 'text', 'channel', 'workspace', 'user');
+        if (Array.isArray(workspace)) {
+            query = query.whereIn('workspace', workspace);
+        } else if (workspace) {
+            query = query.andWhere('workspace', workspace);
+        }
+        const rows = await query;
+        const byTs = new Map(rows.map((row) => [row.ts, row]));
+        for (const item of items) {
+            if (!item.reply_to) {
+                item.parent = null;
+                continue;
+            }
+            const parent = byTs.get(item.reply_to);
+            item.parent = parent
+                ? {ts: parent.ts, text: parent.text, channel: parent.channel, user: parent.user}
+                : null;
+        }
+    }
+
+    async getChannelsForWorkspace(workspace: string): Promise<string[]> {
+        const rows = await db(this.tableName)
+            .where('workspace', workspace)
+            .whereNotNull('channel')
+            .groupBy('channel')
+            .orderBy('channel', 'asc')
+            .select('channel');
+        return rows.map((row) => row.channel).filter(Boolean);
+    }
+
+    async getChannelsForUser(workspace: string, uid: string): Promise<string[]> {
+        const rows = await db(this.tableName)
+            .where('workspace', workspace)
+            .andWhere('user', uid)
+            .whereNotNull('channel')
+            .groupBy('channel')
+            .orderBy('channel', 'asc')
+            .select('channel');
+        return rows.map((row) => row.channel).filter(Boolean);
     }
 }

@@ -8,4 +8,8 @@ export const PayloadFields:PayloadInterface = {
         email: {type:'email', required:true},
         code: {type:'number', required:true}
     },
+    getuserdata: {},
+    getchannels: {
+        workspace: {type:'string', required:true}
+    },
 };

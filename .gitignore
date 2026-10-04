@@ -14,6 +14,9 @@ api/.env
 dist
 api/package-lock.json
 node_modules
-files
+/files
 log
+frontend/.next
+frontend/.env.local
+*.tsbuildinfo
 api/ecosystem.config.cjs

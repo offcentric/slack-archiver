@@ -18,6 +18,9 @@
     "saveFile": "tsx src/scripts/file.save.ts",
     "getFile": "tsx src/scripts/file.info.ts",
     "fixAttachments": "tsx src/scripts/attachment.fix.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run src/tests/unit",
+    "test:integration": "vitest run src/tests/integration",
     "build": "tsc && tsc-alias",
     "migrate": "node-pg-migrate up",
     "pm2": "pm2 reload ecosystem.config.cjs"
@@ -61,7 +64,9 @@
     "tsx": "^4.19.2"
   },
   "devDependencies": {
-    "typescript": "^5.8.2"
+    "supertest": "^7.1.4",
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4"
   },
   "private": true
 }

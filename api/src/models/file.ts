@@ -6,6 +6,10 @@ import GenericModel from "models/_genericModel";
 import {Request} from "express";
 import Metadata from "interfaces/_metadata";
 import {SavePayload} from "payload/_abstract";
+import {db} from '../db/knex';
+import {FILE_SORT_COLUMNS, sanitizeOrderBy} from '../helpers/archiveQuery';
+
+const VISUAL_FILETYPES = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm', 'avi', 'mkv'];
 
 const metadata:Array<Metadata> = [
     {
@@ -175,6 +179,82 @@ export class File extends GenericModel {
 
     prepareSavePayload(payload:SavePayload){
         return {uid: payload.id, created_at:getDateTime(payload.timestamp), name:payload.name, title:payload.title, mimetype:payload.mimetype, filetype:payload.filetype, user:payload.user, workspace:this.workspace, url:payload.url_private, thumbnail:payload.thumb_360, savepath:payload.savepath};
+    }
+
+    async listMedia(filters: Record<string, any>, orderBy?: unknown, limit?: number | Array<number | null>) {
+        const workspaces = Array.isArray(filters.workspace) ? filters.workspace.filter(Boolean) : [];
+        if (!workspaces.length) {
+            return {items: [], totalitems: 0, totalpages: 0, page: 1};
+        }
+
+        const apply = (qb) => {
+            qb.whereIn('file.workspace', workspaces);
+            qb.where(function () {
+                this.where('file.mimetype', 'ilike', 'image/%')
+                    .orWhere('file.mimetype', 'ilike', 'video/%')
+                    .orWhereIn('file.filetype', VISUAL_FILETYPES);
+            });
+            if (filters.user) {
+                qb.andWhere('file.user', filters.user);
+            }
+            if (filters.channel) {
+                qb.whereExists(function () {
+                    this.select(db.raw('1'))
+                        .from('message')
+                        .whereRaw('file.id = ANY(message.file_ids)')
+                        .andWhere('message.channel', filters.channel)
+                        .whereIn('message.workspace', workspaces);
+                });
+            }
+            if (Array.isArray(filters.created_at)) {
+                for (const clause of filters.created_at) {
+                    const op = Object.keys(clause)[0];
+                    qb.andWhere('file.created_at', op, clause[op]);
+                }
+            }
+        };
+
+        const countRows = await db('file').modify(apply).count('* as count');
+        const total = parseInt(String(countRows[0]?.count ?? 0), 10);
+        const pageSize = Array.isArray(limit) ? limit[0] : limit;
+        const offset = Array.isArray(limit) && limit[1] ? Number(limit[1]) : 0;
+        const [column, direction] = sanitizeOrderBy(orderBy, FILE_SORT_COLUMNS, ['created_at', 'desc']);
+
+        let rowsQuery = db('file')
+            .leftJoin('slackuser', function () {
+                this.on('slackuser.uid', '=', 'file.user').andOn('slackuser.workspace', '=', 'file.workspace');
+            })
+            .modify(apply)
+            .select(
+                'file.id',
+                'file.uid',
+                'file.created_at',
+                'file.name',
+                'file.title',
+                'file.mimetype',
+                'file.filetype',
+                'file.user',
+                'file.workspace',
+                'slackuser.real_name as real_name',
+                'slackuser.name as slack_name',
+            )
+            .orderBy(`file.${column}`, direction);
+
+        if (pageSize) {
+            rowsQuery = rowsQuery.limit(Number(pageSize));
+        }
+        if (offset) {
+            rowsQuery = rowsQuery.offset(offset);
+        }
+
+        const items = await rowsQuery;
+        const size = pageSize ? Number(pageSize) : total || 1;
+        return {
+            items,
+            totalitems: total,
+            totalpages: total ? Math.ceil(total / size) : 0,
+            page: pageSize ? Math.floor(offset / Number(pageSize)) + 1 : 1,
+        };
     }
 
     async save(payload, workspace) {

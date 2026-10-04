@@ -9,6 +9,7 @@ import * as rfs from 'rotating-file-stream';
 import { fileURLToPath } from 'url';
 import { getEnvConfig } from './helpers/config';
 import {responseHeaders} from './helpers/response';
+import {getSessionIdFromRequest} from './helpers/auth';
 import doRateLimit from "middleware/ratelimit";
 import checkBlacklist from "middleware/ip_blacklist";
 import logging from "middleware/logging";
@@ -21,7 +22,6 @@ class Server{
         this.app = express();
         this.router = express.Router({mergeParams: true});
         this.routes();
-        this.server();
     }
 
     routes() {
@@ -31,7 +31,8 @@ class Server{
 
         const corsOptions = {
             origin: [/mark.local:[0-9]{4}$/,/localhost:[0-9]{4}$/,/\*.slack\.(com)$/],
-            optionsSuccessStatus: 200
+            optionsSuccessStatus: 200,
+            allowedHeaders: ['Content-Type', 'Authorization']
         };
 
         this.app.use(express.urlencoded({extended:false}));
@@ -66,7 +67,11 @@ class Server{
         }));
 
         this.app.use((req:Request, res:Response, next) => {
-            const sessionId = req.body['session_id'];
+            const sessionId = getSessionIdFromRequest(req);
+            if(!sessionId){
+                next();
+                return;
+            }
             req.sessionStore.get(sessionId, (_err, _sess) => {
                 next();
             });
@@ -109,4 +114,10 @@ class Server{
     }
 }
 
-export default new Server();
+const server = new Server();
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+    server.server();
+}
+
+export const app = server.app;
+export default server;

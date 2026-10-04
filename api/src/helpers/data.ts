@@ -410,7 +410,7 @@ export const paramsToFilters = (params, joins?) => {
                         joins.push({table:joinTable, first:joinTable+'.uid', second:joinField});
                     }
                     filters.push({key,comp:'=',val:Object.values(value)[0]});
-                }else if(['is','is not','like','any','>','<','>=','<=','<>', '!='].indexOf(subkey) !== -1){
+                }else if(['is','is not','like','ilike','any','>','<','>=','<=','<>', '!='].indexOf(subkey) !== -1){
                     filters.push({key,comp:subkey,val:val[subkey]});
                 }else if(['__joinTable','__relationType'].indexOf(subkey) === -1){
                     filters.push({key:subkey,comp:'=',val:val[subkey]});

@@ -3,7 +3,12 @@ import session from 'express-session';
 
 declare module 'express-session' {
     interface SessionData {
-        user?: { id: string; email: string }; // adjust to your actual session shape
+        email?: string;
+        user_id?: number;
+        workspaces?: import('../interfaces/user').WorkspaceIdentity[];
+        ip_address?: string;
+        session_id?: string;
+        user?: { id: string; email: string };
     }
 }
 

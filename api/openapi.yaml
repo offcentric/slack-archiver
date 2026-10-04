@@ -17,17 +17,19 @@ info:
     One API instance can serve multiple Slack workspaces. App users may only read
     workspaces listed on their account.
 
-    **Not in this API.** There is no channel catalog, no workspace catalog (use
-    `workspaces` from login), no user-admin CRUD, and **no HTTP endpoint that serves
-    archived file bytes**. File rows expose Slack `url_private` and a local `savepath`
-    only. Those URLs are not usable without a Slack token.
+    **Not in this API.** There is no workspace catalog (use `workspaces` from login)
+    and no user-admin CRUD. Archived bytes are available at `GET /file/content/{id}`
+    (session required, path confined to the download directory). Slack `url_private`
+    is still not a public URL. `POST /message/channels` lists every archived channel
+    in a workspace. `POST /user/getchannels` remains the channels that person has
+    posted in. Admin import is `POST /admin/sync` and `POST /admin/channels` (role 100).
 
     ---
 
     ## Client implementation guide
 
     Prefer **POST** with `Content-Type: application/json`. `GET` exists only for
-    `/health`, `/message/list`, and `/file/list`. Pagination (`_limit`, `_page`,
+    `/health`, `/message/list`, `/message/listthreaded`, and `/file/list`. Pagination (`_limit`, `_page`,
     `_orderby`) is read from the **JSON body only**, so GET list calls cannot paginate
     unless they also send a body (non-standard). Use POST for all list/get/search calls.
 
@@ -41,22 +43,35 @@ info:
        are lost on API restart and are not shared across processes.
     2. `POST /user/login` with `{ "email", "code" }`. Persist the entire response:
        `session_id`, `id`, `email`, `role`, `workspaces`.
-    3. On every authenticated request send **either or both**:
-       - JSON body field `session_id`
-       - header `Authorization: CH-Slackuser-Session-Token <session_id>`
-    4. `POST /user/logout` with `session_id` to destroy the session.
+       `workspaces` is one object per name in `user.workspaces`, enriched from
+       `slackuser` where `user_id` equals this app user
+       (`{ workspace, uid, name, real_name, … }`). `uid` is that person's Slack id
+       in that workspace (null until the row is linked). Use it when filtering messages with `user`.
+    3. `POST /user/getuserdata` (Bearer token, no body) returns the same profile nested
+       as `{ "userData": { ... } }` (no `session_id`).
+    4. `POST /user/getchannels` with `{ "workspace" }` returns the channel **names**
+       that person has posted in (`message.user` = session `uid` for that workspace).
+    5. On every authenticated request send
+       `Authorization: Bearer <session_id>`. Do not put `session_id` in the JSON body.
+    6. `POST /user/logout` (Bearer token, no body) to destroy the session.
 
     Do **not** rely on cookies. A `user_session` cookie may be set but session lookup
-    only reads the JSON body and the `Authorization` header.
+    only reads the Bearer token.
 
     ### Workspace ACL
 
-    `workspaces` on the login response is the ACL. There is no workspace list endpoint.
+    `workspaces` on the login response is the ACL: one object per name in
+    `user.workspaces`, enriched from a `slackuser` row with `user_id = user.id` in
+    that workspace when one exists (`workspace`, `uid`, `name`, `real_name`, plus
+    `id` / `team_id` / `is_bot`). List handlers compare the request `workspace` string
+    against `workspaces[].workspace`. The Slack `uid` is stored on the session at login
+    so a client can filter messages for that person (`user: workspaces[i].uid`) in the
+    selected workspace.
 
     List handlers rewrite `workspace` as follows:
 
-    - Omitted → filter to all of `session.workspaces`.
-    - Provided → must be in `session.workspaces`, else `403` `no_access_to_workspace`.
+    - Omitted → filter to all of `session.workspaces[].workspace`.
+    - Provided → must match a `workspaces[].workspace`, else `403` `no_access_to_workspace`.
       Internally it becomes a one-element array.
 
     **Caveat (file list and slackuser list):** `workspace` is not in those payload
@@ -67,14 +82,17 @@ info:
     ### Channel names
 
     `channel` is the Slack **channel name** (e.g. `general`), never the Slack channel ID
-    (`C0…`). There is no channel-list endpoint. Derive names from `message.channel`
-    values, or require the user to type a name.
+    (`C0…`). Use `POST /user/getchannels` with a `workspace` to list channels the
+    logged-in user has posted in. That is not a full Slack membership list — channels
+    they never wrote in will be absent.
 
     ### Threads
 
-    Message list is **flat**. Thread replies have `reply_to` set to the parent message
-    `ts`. Group in the UI with `reply_to === parent.ts`. `POST /message/get` also
-    returns a `replies` array on the parent.
+    `POST /message/list` is **flat**. Thread replies have `reply_to` set to the parent
+    message `ts`. `POST /message/listthreaded` returns only top-level messages
+    (`reply_to` is null) in `items`, each with a `replies` array of child messages
+    in chronological `ts` order. `_orderby` on `listthreaded` sorts **parents only**.
+    `POST /message/get` also returns a `replies` array on the parent.
 
     Nested `slackuser`, `files`, `attachments`, and `blocks` on messages are produced
     with `json_agg`, so **`slackuser` is an array** (usually 0–1 objects), not a single
@@ -149,11 +167,10 @@ info:
 
     | Gap | Impact on a client |
     | --- | --- |
-    | `POST /message/search` does not call `checkAuth` | Unauthenticated FTS across **all** workspaces. `workspace` / `channel` in the body are **not applied**. Do not treat results as ACL-safe. Still send `session_id`. Filter to `session.workspaces` in the UI only as a display aid. |
     | `POST /slackuser/get` has no payload schema | Always fails with `missing_filter`. Use `POST /slackuser/list`. |
-    | File / slackuser list ignore `workspace` | Cannot narrow those lists to one workspace. |
-    | No file download route | UI can show metadata (`name`, `title`, `filetype`, `thumbnail` URL) only. |
+    | Slack user list ignores `workspace` | Filter `items[].workspace` in the client. Message and file list do honor `workspace`. |
     | Login codes are in-process cache | Restart invalidates unused codes. |
+    | `GET /file/content/{id}` needs the file on disk | Rows without a `savepath` inside `FILES_DOWNLOAD_DIRECTORY` return `404` `file_not_on_disk`. |
 
     `/webhook` is Slack Events API ingest. It is documented here for completeness;
     a user-facing frontend must not call it.
@@ -169,6 +186,8 @@ tags:
     description: Archived Slack file metadata. No binary download.
   - name: Slack users
     description: People in Slack (`slackuser`), not app accounts.
+  - name: Admin
+    description: Admin-only Slack import. Role `100` only. Never imports direct messages.
   - name: Ingest
     description: Slack Events API webhook. Not for the user-facing client.
 
@@ -280,7 +299,15 @@ paths:
                 id: 1
                 email: archive-reader@example.com
                 role: 1
-                workspaces: [acme, widgets]
+                workspaces:
+                  - workspace: acme
+                    uid: U012ABCDEF
+                    name: archive.reader
+                    real_name: Archive Reader
+                  - workspace: widgets
+                    uid: U098ZYXWVU
+                    name: archive.reader
+                    real_name: Archive Reader
                 session_id: QkYk2m8s0a1b2c3d4e5f6g7h
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -300,6 +327,89 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /user/getuserdata:
+    post:
+      tags: [Auth]
+      operationId: getUserData
+      summary: Reload the current user profile
+      description: |
+        Authenticated. Loads the app user by session email and returns the same
+        enriched profile as login: `user.workspaces` as identity objects (Slack
+        `name` / `real_name` live on those objects, not on the app user), nested
+        under `userData`. Does not rotate `session_id`.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserDataResponse'
+              example:
+                userData:
+                  id: 1
+                  email: archive-reader@example.com
+                  role: 1
+                  workspaces:
+                    - workspace: acme
+                      uid: U012ABCDEF
+                      name: archive.reader
+                      real_name: Archive Reader
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /user/getchannels:
+    post:
+      tags: [Auth]
+      operationId: getChannels
+      summary: List channels the user has posted in
+      description: |
+        Authenticated. `workspace` is required and must be in `session.workspaces`.
+
+        Resolves the logged-in person's Slack `uid` for that workspace from the
+        session identities (`slackuser.user_id = session user id`). If the session is
+        missing a uid, the handler reloads linked `slackuser` rows by `user_id`. Then:
+
+        `SELECT channel FROM message WHERE workspace = ? AND user = ? GROUP BY channel`
+
+        Returns distinct channel **names**, sorted A–Z. Empty `items` if the user has
+        no Slack uid in that workspace or has never posted there. Does not list
+        channels they can only read.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetChannelsRequest'
+            example:
+              workspace: acme
+      responses:
+        '200':
+          description: Distinct channel names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetChannelsResponse'
+              example:
+                items: [alerts, general, random]
+        '400':
+          description: Missing `workspace`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /user/logout:
     post:
       tags: [Auth]
@@ -309,15 +419,7 @@ paths:
         Requires a valid session. If there is no session, the handler still returns
         the logged-out envelope (idempotent).
       security:
-        - SessionHeader: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SessionRequest'
-            example:
-              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+        - BearerAuth: []
       responses:
         '200':
           description: Session destroyed
@@ -344,15 +446,19 @@ paths:
         size 500.
 
         Returns a **flat** list (channel messages and thread replies together).
-        Replies have `reply_to` set to the parent `ts`.
+        Replies have `reply_to` set to the parent `ts`, plus a `parent` object
+        `{ ts, text, channel, user }` when that parent is in an allowed workspace.
+        `parent` is null for top-level messages.
 
         List items include joined children (`slackuser`, `files`, `attachments`,
         `blocks`) when present. `team` and `type` are omitted from list rows
         (`show_in_list: false`); use `POST /message/get` for those fields.
 
-        `replies[]` is **not** populated on list items.
+        `replies[]` is **not** populated on list items. `text` filters with a
+        case-insensitive substring. `_orderby` is limited to `datetime`, `ts`,
+        `user`, `channel`, `text`, and `id`.
       security:
-        - SessionHeader: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -363,7 +469,6 @@ paths:
               latestInChannel:
                 summary: Latest messages in one allowed workspace/channel
                 value:
-                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
                   workspace: acme
                   channel: general
                   _limit: 50
@@ -372,7 +477,6 @@ paths:
               dateRange:
                 summary: All allowed workspaces, date range
                 value:
-                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
                   date_from: '2026-01-01'
                   date_to: '2026-01-31'
                   user: U012ABCDEF
@@ -398,13 +502,13 @@ paths:
       operationId: listMessagesGet
       summary: List archived messages (GET)
       description: |
-        Same handler as POST. Filter fields may be query parameters. `session_id`
-        cannot be sent as a query param for auth — use the `Authorization` header.
+        Same handler as POST. Filter fields may be query parameters. Auth is the
+        `Authorization: Bearer` header (not a query param).
 
         `_limit` / `_page` / `_orderby` are **not** read from the query string.
         Prefer POST.
       security:
-        - SessionHeader: []
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/WorkspaceQuery'
         - $ref: '#/components/parameters/ChannelQuery'
@@ -418,6 +522,90 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /message/listthreaded:
+    post:
+      tags: [Messages]
+      operationId: listMessagesThreaded
+      summary: List top-level messages with nested replies
+      description: |
+        Authenticated. Workspace ACL applied. Same filters and pagination as
+        `POST /message/list` (`workspace`, `channel`, `user`, `date_from`, `date_to`,
+        `_limit`, `_page`, `_orderby`). Default order `ts DESC`. Default page size 500.
+
+        `items` contains **only** top-level messages (`reply_to` is null). Pagination
+        (`totalitems`, `totalpages`, `page`) counts those parents only.
+
+        Each item includes `replies`: every message whose `reply_to` equals that
+        parent's `ts`, always ordered by `ts` ascending (chronological). `_orderby`
+        does **not** affect `replies`.
+
+        Filters (`user`, `date_from` / `date_to`, `channel`, `workspace`) apply to
+        parents. Once a parent is included, **all** of its replies are returned
+        (same nested joins as list: `slackuser`, `files`, `attachments`, `blocks`).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageListRequest'
+            examples:
+              latestInChannel:
+                summary: Latest threads in one allowed workspace/channel
+                value:
+                  workspace: acme
+                  channel: general
+                  _limit: 50
+                  _page: 1
+                  _orderby: [ts, desc]
+      responses:
+        '200':
+          description: Paginated top-level messages, each with chronological replies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageThreadedListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    get:
+      tags: [Messages]
+      operationId: listMessagesThreadedGet
+      summary: List top-level messages with nested replies (GET)
+      description: |
+        Same handler as POST. Filter fields may be query parameters. Auth is the
+        `Authorization: Bearer` header (not a query param).
+
+        `_limit` / `_page` / `_orderby` are **not** read from the query string.
+        Prefer POST.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/ChannelQuery'
+        - $ref: '#/components/parameters/UserQuery'
+        - $ref: '#/components/parameters/DateFromQuery'
+        - $ref: '#/components/parameters/DateToQuery'
+      responses:
+        '200':
+          description: Paginated top-level messages, each with chronological replies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageThreadedListResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -443,7 +631,7 @@ paths:
 
         Missing row → `404` `message_not_found`.
       security:
-        - SessionHeader: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -453,11 +641,9 @@ paths:
             examples:
               byTs:
                 value:
-                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
                   ts: '1704067200.123456'
               byId:
                 value:
-                  session_id: QkYk2m8s0a1b2c3d4e5f6g7h
                   id: 446545
       responses:
         '200':
@@ -495,14 +681,12 @@ paths:
 
         Default `limit` 20, `page` 1 (offset `(page - 1) * limit`).
 
-        **Security gap (current behaviour):** `checkAuth` is commented out. Anyone who
-        can reach the API can search every archived message. Body fields `workspace`
-        and `channel` are parsed but **not passed into the search query**.
-
-        Clients should still send `session_id`, must not treat hits as authorized, and
-        should hide rows whose `workspace` is not in `session.workspaces` for display.
-        Do not ship a public search UI that depends on this endpoint for GDPR isolation.
-      security: []
+        Requires a session. Results are limited to `session.workspaces[].workspace`.
+        A `workspace` value must be one of those names (`403` `no_access_to_workspace`
+        otherwise). Optional `channel` is applied as an equality filter. An account
+        with no workspaces receives an empty array.
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -510,7 +694,6 @@ paths:
             schema:
               $ref: '#/components/schemas/MessageSearchRequest'
             example:
-              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
               q: deploy pipeline
               limit: 20
               page: 1
@@ -529,6 +712,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
         '500':
           description: '`search_query_failed` or no searchable fields'
           content:
@@ -544,14 +731,12 @@ paths:
       description: |
         Authenticated. Default order `created_at DESC`. Default page size 500.
 
-        Filtered to `session.workspaces`. A client-supplied `workspace` is **ignored**
-        (not in the payload schema). `mimetype` is omitted from list rows.
-
-        There is no download URL you can use in a browser. `url` is Slack
-        `url_private`; `thumbnail` is Slack `thumb_360`; `savepath` is a server-local
-        path.
+        Filtered to `session.workspaces[].workspace`. A client-supplied `workspace` must be
+        one of those names. `channel` is ignored unless `media` is true, in which case
+        files are limited to images and videos attached to messages in that channel.
+        Bytes are served from `GET /file/content/{id}`, not from Slack `url_private`.
       security:
-        - SessionHeader: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -559,7 +744,6 @@ paths:
             schema:
               $ref: '#/components/schemas/FileListRequest'
             example:
-              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
               user: U012ABCDEF
               date_from: '2026-01-01'
               date_to: '2026-01-31'
@@ -584,7 +768,7 @@ paths:
       summary: List archived file metadata (GET)
       description: Same handler as POST. Auth via `Authorization` header. Prefer POST.
       security:
-        - SessionHeader: []
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/UserQuery'
         - $ref: '#/components/parameters/DateFromQuery'
@@ -610,7 +794,7 @@ paths:
         Authenticated. Lookup is the integer primary key `id`, **not** Slack `uid`.
         Includes `mimetype` (hidden on list). Missing row → `404` `file_not_found`.
       security:
-        - SessionHeader: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -618,7 +802,6 @@ paths:
             schema:
               $ref: '#/components/schemas/FileGetRequest'
             example:
-              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
               id: 14622
       responses:
         '200':
@@ -644,6 +827,180 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /file/content/{id}:
+    get:
+      tags: [Files]
+      operationId: getFileContent
+      summary: Stream an archived image or other file
+      description: |
+        Authenticated via `Authorization: Bearer`. `id` is the numeric file primary key.
+        The file's `workspace` must be on the session. The local `savepath` must resolve
+        inside `FILES_DOWNLOAD_DIRECTORY`. The response body is the file bytes
+        (`Content-Type` from `mimetype`), not JSON.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: File bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+        '404':
+          description: '`file_not_found` or `file_not_on_disk`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /message/channels:
+    post:
+      tags: [Messages]
+      operationId: listMessageChannels
+      summary: Distinct archived channel names for a workspace
+      description: |
+        Authenticated. Returns `{ "items": ["general", "random"] }` sorted by channel
+        name. This is every channel that has archived messages in the workspace, not
+        only channels the current user has posted in. `403` if `workspace` is outside
+        the session ACL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace]
+              properties:
+                workspace:
+                  type: string
+      responses:
+        '200':
+          description: Channel names
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+
+  /admin/sync:
+    post:
+      tags: [Admin]
+      operationId: syncArchive
+      summary: Import Slack users or channel history
+      description: |
+        Admin role only (`role` 100). `action` is `users` or `messages`.
+        `messages` requires `channel` and may include `limit`, `latest`, and `oldest`
+        (Slack timestamps as strings). The call blocks until the Slack import finishes.
+        Direct messages are not requested. `403` `admin_only` for other roles, or
+        `no_access_to_workspace` when the workspace is outside the session ACL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, workspace]
+              properties:
+                action:
+                  type: string
+                  enum: [users, messages]
+                workspace:
+                  type: string
+                channel:
+                  type: string
+                limit:
+                  type: integer
+                latest:
+                  type: string
+                oldest:
+                  type: string
+      responses:
+        '200':
+          description: Import finished
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workspace:
+                    type: string
+                  channel:
+                    type: string
+                  imported:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`admin_only` or `no_access_to_workspace`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /admin/channels:
+    post:
+      tags: [Admin]
+      operationId: listSlackChannels
+      summary: Public and private Slack channels available to sync
+      description: |
+        Admin role only. Asks Slack for `public_channel` and `private_channel` names.
+        IM and MPIM conversations are excluded.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace]
+              properties:
+                workspace:
+                  type: string
+      responses:
+        '200':
+          description: Channel names
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`admin_only` or `no_access_to_workspace`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /slackuser/list:
     post:
       tags: [Slack users]
@@ -654,19 +1011,11 @@ paths:
         is `{ "items": [ ... ] }` only. Model default limit is 500.
 
         Client-supplied `workspace` is **ignored** (no payload schema for this path).
-        Results are limited to `session.workspaces`.
+        Results are limited to `session.workspaces[].workspace`.
 
         These are Slack members (`uid`, `name`, `real_name`, `is_bot`), not app logins.
       security:
-        - SessionHeader: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SessionRequest'
-            example:
-              session_id: QkYk2m8s0a1b2c3d4e5f6g7h
+        - BearerAuth: []
       responses:
         '200':
           description: Slackuser collection without totals
@@ -692,13 +1041,7 @@ paths:
         **Do not call this from a client.** Use `POST /slackuser/list` and find the row
         by `uid` or `id`.
       security:
-        - SessionHeader: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SessionRequest'
+        - BearerAuth: []
       responses:
         '200':
           description: |
@@ -801,15 +1144,14 @@ paths:
 
 components:
   securitySchemes:
-    SessionHeader:
-      type: apiKey
-      in: header
-      name: Authorization
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Session
       description: |
-        `CH-Slackuser-Session-Token <session_id>`
-
-        Equivalent alternative: JSON body field `session_id` (required for POST if this
-        header is omitted). GET list must use this header.
+        Session id returned by `POST /user/login`. Send on every authenticated
+        request as `Authorization: Bearer <session_id>`. Do not put `session_id`
+        in the JSON body.
 
   parameters:
     WorkspaceQuery:
@@ -817,7 +1159,7 @@ components:
       in: query
       schema:
         type: string
-      description: Lowercase workspace name. Must be in `session.workspaces`.
+      description: Lowercase workspace name. Must match a `session.workspaces[].workspace`.
     ChannelQuery:
       name: channel
       in: query
@@ -867,7 +1209,7 @@ components:
             detail: null
             stack: {}
     ForbiddenWorkspace:
-      description: Requested `workspace` is not in `session.workspaces`.
+      description: Requested `workspace` is not in `session.workspaces[].workspace`.
       content:
         application/json:
           schema:
@@ -1004,17 +1346,6 @@ components:
           type: integer
           enum: [404]
 
-    SessionRequest:
-      type: object
-      properties:
-        session_id:
-          type: string
-          description: |
-            Express session id from login. Required on POST if the
-            `Authorization` header is not set.
-          example: QkYk2m8s0a1b2c3d4e5f6g7h
-      additionalProperties: true
-
     SendLoginCodeRequest:
       type: object
       required: [email]
@@ -1046,9 +1377,46 @@ components:
         (`helpers/user.ts` `UserRoles`).
       enum: [0, 1, 10, 100]
 
-    LoginResponse:
+    UserWorkspace:
       type: object
-      required: [id, email, role, workspaces, session_id]
+      required: [workspace]
+      description: |
+        One allowed workspace from `user.workspaces`. When a `slackuser` row is linked
+        (`slackuser.user_id = user.id` for this workspace), identity fields are filled
+        in. `user_id` itself is not included.
+      properties:
+        id:
+          type: integer
+          description: '`slackuser.id` primary key.'
+        workspace:
+          type: string
+          description: Lowercase workspace name. This is the ACL key and the `workspace` filter on list endpoints.
+          example: acme
+        uid:
+          type: string
+          nullable: true
+          description: |
+            Slack user id (`slackuser.uid`) for the logged-in person in this workspace.
+            Persist this and send it as `user` when listing that person's messages.
+          example: U012ABCDEF
+        team_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+          description: Slack username / handle (`slackuser.name`).
+        real_name:
+          type: string
+          nullable: true
+          description: Slack display name (`slackuser.real_name`).
+        is_bot:
+          type: boolean
+          nullable: true
+
+    UserProfile:
+      type: object
+      required: [id, email, role, workspaces]
       properties:
         id:
           type: integer
@@ -1060,11 +1428,46 @@ components:
         workspaces:
           type: array
           items:
-            type: string
-          description: Lowercase workspace names this user may read. Persist and use as the ACL.
-        session_id:
+            $ref: '#/components/schemas/UserWorkspace'
+          description: |
+            One item per name in `user.workspaces`, enriched from linked `slackuser`
+            rows (`user_id = user.id`). Stored on the session at login. ACL uses
+            `workspace`; message-author filters use `uid`.
+
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          required: [session_id]
+          properties:
+            session_id:
+              type: string
+              description: 'Persist this and send `Authorization: Bearer <session_id>` on subsequent authenticated calls.'
+
+    GetUserDataResponse:
+      type: object
+      required: [userData]
+      properties:
+        userData:
+          $ref: '#/components/schemas/UserProfile'
+
+    GetChannelsRequest:
+      type: object
+      required: [workspace]
+      properties:
+        workspace:
           type: string
-          description: Send on subsequent authenticated calls.
+          description: Lowercase workspace name. Must match a `session.workspaces[].workspace`.
+
+    GetChannelsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: string
+          description: Channel names (`message.channel`), sorted ascending.
 
     PaginationFields:
       type: object
@@ -1091,7 +1494,6 @@ components:
 
     MessageListRequest:
       allOf:
-        - $ref: '#/components/schemas/SessionRequest'
         - $ref: '#/components/schemas/PaginationFields'
         - type: object
           properties:
@@ -1102,8 +1504,15 @@ components:
               type: string
               description: Channel name. Empty string is treated as omitted.
             user:
+              description: Slack user id, or an array of ids (`IN`).
+              oneOf:
+                - type: string
+                - type: array
+                  items:
+                    type: string
+            text:
               type: string
-              description: Slack user id of the author (`message.user`).
+              description: Case-insensitive substring match on `message.text`. Applied on submit, not per keypress, by the client.
             date_from:
               type: string
               description: Inclusive lower bound on `datetime` (date-only after parse).
@@ -1113,7 +1522,6 @@ components:
 
     FileListRequest:
       allOf:
-        - $ref: '#/components/schemas/SessionRequest'
         - $ref: '#/components/schemas/PaginationFields'
         - type: object
           properties:
@@ -1128,13 +1536,16 @@ components:
               description: Inclusive upper bound on `created_at`.
             workspace:
               type: string
-              description: |
-                Currently **ignored** (not in payload schema). Results always cover
-                every workspace on the session.
+              description: Lowercase workspace name. Must be in the session ACL. Omit to query every allowed workspace.
+            channel:
+              type: string
+              description: Used when `media` is true. Limits files to those attached to messages in this channel.
+            media:
+              type: boolean
+              description: When true, return images and videos only, with uploader `real_name` when linked.
 
     MessageGetRequest:
       allOf:
-        - $ref: '#/components/schemas/SessionRequest'
         - type: object
           properties:
             id:
@@ -1160,7 +1571,6 @@ components:
 
     FileGetRequest:
       allOf:
-        - $ref: '#/components/schemas/SessionRequest'
         - type: object
           required: [id]
           properties:
@@ -1170,7 +1580,6 @@ components:
 
     MessageSearchRequest:
       allOf:
-        - $ref: '#/components/schemas/SessionRequest'
         - type: object
           required: [q]
           properties:
@@ -1477,6 +1886,31 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/MessageListItem'
+
+    MessageThreadedListItem:
+      allOf:
+        - $ref: '#/components/schemas/MessageListItem'
+        - type: object
+          required: [replies]
+          properties:
+            replies:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageListItem'
+              description: |
+                Child messages whose `reply_to` equals this item's `ts`, always
+                ordered by `ts` ascending. `_orderby` does not apply here.
+
+    MessageThreadedListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedCollection'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageThreadedListItem'
+          description: Pagination counts top-level messages only.
 
     FileListResponse:
       allOf:

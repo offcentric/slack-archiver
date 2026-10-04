@@ -2,7 +2,7 @@
 
 This file is the project map for anyone (human or model) working on this repo. Installation and Slack-app setup live in `README.md`. Use this file for architecture, data, and how to add features. The HTTP contract of record is `api/openapi.yaml` (OpenAPI 3.0) — use that spec when implementing a client.
 
-Ignore `frontend/`. It is unfinished and will be replaced; do not extend or treat it as a reference for clients or UI.
+The working client is `frontend/` (Next.js). It talks to this API through same-origin route handlers. The session id from `POST /user/login` is stored in an httpOnly `sa_session` cookie on the Next server and sent as `Authorization: Bearer` from those handlers. Browser JavaScript does not see the session id. Do not put it in `localStorage`.
 
 ## What it is
 
@@ -10,7 +10,7 @@ A long-term archive for Slack. A Slack bot in one or more workspaces listens to 
 
 **In scope:** public and private channels. **Out of scope:** DMs (never archived).
 
-The working product is the API package at `api/` (webhook ingest, REST, data layer, batch scripts).
+The working product is the API package at `api/` (webhook ingest, REST, data layer, batch scripts) and the Next.js client at `frontend/`.
 
 ## Architecture
 
@@ -25,8 +25,8 @@ Express API (api/)  ──►  PostgreSQL (slack_archive)
 
 - **Realtime ingest:** Slack Events API → `POST /webhook?workspace=<name>`.
 - **Retroactive ingest:** `npm run saveMessages -- <workspace> <channel>` in `api/`.
-- **Read path:** authenticated REST for a future custom UI (or any client).
-- **Multi-workspace:** one API instance; each Slack team has its own env token block. App users get a `workspaces` string array that is the ACL.
+- **Read path:** authenticated REST. The Next.js app in `frontend/` is the browser client (login, workspace picker, message browser, search, media, admin sync).
+- **Multi-workspace:** one API instance; each Slack team has its own env token block. App users are linked to Slack people via `slackuser.user_id`. Login returns those rows as `workspaces[]` (`workspace`, `uid`, `name`, `real_name`, …).
 
 ## Tech stack
 
@@ -62,24 +62,24 @@ message
   file_ids[]      → file.id           (output key: files)
   attachment_ids[]→ attachment.id     (output key: attachments)
   block_ids[]     → block.id          (output key: blocks)
-  reply_to        → parent message.ts (thread replies; on GET with extended=['replies'] → replies[])
+  reply_to        → parent message.ts (thread replies; GET and listthreaded → replies[])
 
 attachment.block_ids[] → block.id
 ```
 
 ### Tables
 
-**`message`** — archive unit. Unique on Slack `ts` (string). `channel` is the **channel name**, not Slack ID. `datetime` is derived from `ts`. `text` is the only FTS field.
+**`message`** — archive unit. Unique on Slack `ts` (string). `channel` is the **channel name**, not Slack ID. `datetime` is derived from `ts`. `text` is the only FTS field. `reply_to` is the parent message `ts` for thread replies (null for top-level). `POST /message/listthreaded` returns parents in `items` and nested `replies[]` (always chronological).
 
-**`file`** — Slack files. `uid` unique. `url` is Slack `url_private`; `savepath` is the local download path. Binaries live under `FILES_DOWNLOAD_DIRECTORY` (default repo `files/`) as `{workspace}/{channel}/{title}--{id}.{ext}`. **There is no HTTP download/static endpoint yet** — API returns metadata only.
+**`file`** — Slack files. `uid` unique. `url` is Slack `url_private`; `savepath` is the local download path. Binaries live under `FILES_DOWNLOAD_DIRECTORY` (default repo `files/`) as `{workspace}/{channel}/{title}--{id}.{ext}`. `GET /file/content/{id}` streams that file when the path stays inside the download directory and the workspace is on the session.
 
 **`attachment`** — unfurls / link attachments (title, text, URLs).
 
 **`block`** — subset of Block Kit; only `image` and `link` types are persisted.
 
-**`slackuser`** — people in Slack (`uid`, `name`, `real_name`, `is_bot`, `workspace`). Not app accounts.
+**`slackuser`** — people in Slack (`uid`, `name`, `real_name`, `is_bot`, `workspace`, optional `user_id` → app `user.id`). Not app accounts. Login/getuserdata attach a matching `slackuser` row when `user_id` equals the session user.
 
-**`user`** — app accounts: `email` unique, `role` int, `workspaces` `varchar[]`. Login is email + 6-digit code (no passwords).
+**`user`** — app accounts: `email` unique, `role` int, `workspaces` `varchar[]` of workspace names (ACL). Login is email + 6-digit code (no passwords). API `workspaces` on login/getuserdata is that column as identity objects, enriched from `slackuser` where `user_id = user.id`. Unlinked workspaces still appear, with `uid` / `name` / `real_name` null.
 
 Also: `user_session`, `user_login`, `api_log`, `error_log`. Code also reads `ip_blacklist` (no migration in repo).
 
@@ -112,32 +112,50 @@ Base URL is the Express port (`PORT`, template `6969`). JSON in/out. Prefer **PO
 ### Auth
 
 1. `POST /user/sendlogincode` `{ email }` — if the email exists, Mailgun sends a 6-digit code cached 5 minutes (`auth_code_${email}`). Unknown emails still return success (no enumeration).
-2. `POST /user/login` `{ email, code }` — returns the **user row plus** `session_id`:
+2. `POST /user/login` `{ email, code }` — returns the **user row plus** `session_id`. `workspaces` is an array of Slack identities (not bare names):
 
 ```json
-{ "id": 1, "email": "a@b.c", "role": 1, "workspaces": ["acme"], "session_id": "…" }
+{
+  "id": 1,
+  "email": "a@b.c",
+  "role": 1,
+  "workspaces": [
+    { "workspace": "acme", "uid": "U012ABCDEF", "name": "alice", "real_name": "Alice Example" }
+  ],
+  "session_id": "…"
+}
 ```
 
-3. Every authenticated call must send `session_id` in the **JSON body**, or header `Authorization: CH-Slackuser-Session-Token <session_id>`. Cookies exist (`user_session`) but clients should not rely on them.
-4. `POST /user/logout` `{ session_id }`.
+One object per name in `user.workspaces`. If a `slackuser` row has `user_id` set to this app user for that workspace, `uid` / `name` / `real_name` are filled in; otherwise those fields are null. `uid` is stored on the session at login so a client can filter messages with `user`. Slack `name` / `real_name` live on each workspace object, not on the app user.
+3. `POST /user/getuserdata` — Bearer token, no body. Same profile nested as `{ "userData": { … } }`.
+4. `POST /user/getchannels` `{ workspace }` — Bearer token. Distinct `message.channel` values where `message.user` is the session Slack `uid` for that workspace. `403` if the workspace is not on the session ACL.
+5. Every authenticated call must send `Authorization: Bearer <session_id>`. Do not send `session_id` in the JSON body. Cookies exist (`user_session`) but clients should not rely on them.
+6. `POST /user/logout` — Bearer token, no body.
 
-Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is omitted, results are limited to `session.workspaces`. If set, it must be in that list or the API returns 403 `no_access_to_workspace`.
+Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is omitted, results are limited to `session.workspaces[].workspace`. If set, it must match one of those names or the API returns 403 `no_access_to_workspace`.
 
-`GET /health` and the webhook are unauthenticated. **`POST /message/search` currently has `checkAuth` commented out** — treat as a gap, not a feature; lock it down when touching search.
+`GET /health` and the webhook are unauthenticated. `POST /message/search` requires a session and applies the workspace ACL.
 
 ### Endpoints
 
-| Method | Path | Auth | Body (besides `session_id`) | Response |
+| Method | Path | Auth | Body | Response |
 |--------|------|------|-----------------------------|----------|
 | GET | `/health` | no | — | `{ "status": "ok" }` |
 | POST | `/user/sendlogincode` | no | `email` | success/error envelope |
-| POST | `/user/login` | no | `email`, `code` | user row + `session_id` |
+| POST | `/user/login` | no | `email`, `code` | user row + `session_id`; `workspaces[]` are `{ workspace, uid, name, real_name }` |
+| POST | `/user/getuserdata` | yes | — | `{ userData }` (same profile as login, no `session_id`) |
+| POST | `/user/getchannels` | yes | `workspace` | `{ items }` — distinct channel names the user has posted in |
 | POST | `/user/logout` | yes | — | logged-out envelope |
 | POST/GET | `/message/list` | yes | `workspace?`, `channel?`, `user?`, `date_from?`, `date_to?`, `_orderby?`, `_limit?`, `_page?` | paginated `{ items, totalitems, totalpages, page }` |
+| POST/GET | `/message/listthreaded` | yes | same as `/message/list` | paginated top-level messages (`reply_to` null); each item has `replies[]` in `ts` ASC. `_orderby` sorts parents only |
 | POST | `/message/get` | yes | `id` **or** `ts`; `simple?` | one message; nested `slackuser`, `files`, `attachments`, `blocks`, `replies` |
-| POST | `/message/search` | **should be yes** | `q` required; `limit?`, `page?` | **array** of ranked rows (FTS on `message.text` only). `workspace`/`channel` are in the payload schema but **not applied** by `_search` |
-| POST/GET | `/file/list` | yes | `workspace?` (controller, not schema), `user?`, `date_from?`, `date_to?`, pagination | paginated collection |
+| POST | `/message/search` | yes | `q` required; `workspace?`, `channel?`, `limit?`, `page?` | **array** of ranked rows (FTS on `message.text` only), limited to the session workspaces. `channel` is applied when set |
+| POST/GET | `/file/list` | yes | `workspace?`, `user?`, `channel?`, `media?`, `date_from?`, `date_to?`, pagination | paginated collection. `media: true` returns images and videos; `channel` then limits them to files attached in that channel |
 | POST | `/file/get` | yes | `id` | file row |
+| GET | `/file/content/{id}` | yes | — | file bytes when `savepath` is inside `FILES_DOWNLOAD_DIRECTORY` and the workspace is allowed |
+| POST | `/message/channels` | yes | `workspace` | `{ items }` distinct archived channel names |
+| POST | `/admin/sync` | admin (`role` 100) | `action` `users` or `messages`, `workspace`, `channel?`, `limit?` | Slack import. Does not import DMs |
+| POST | `/admin/channels` | admin (`role` 100) | `workspace` | public and private Slack channel names for the sync form |
 | POST | `/slackuser/list` | yes | `workspace?` | `{ items }` (no pagination flag) |
 | POST | `/slackuser/get` | yes | index fields | slackuser row |
 | POST | `/webhook` | Slack token | Events API body; `?workspace=` | challenge or save result |
@@ -158,7 +176,9 @@ Common `message` strings: `auth_fail`, `no_access_to_workspace`, `missing_requir
 
 `returnSuccess` uses `res.send`; health uses `res.json`. HTTP codes live in `api/src/helpers/status.ts`.
 
-A future client should persist `session_id` + `workspaces`, send `session_id` on every authenticated call, and either pass a `workspace` the user is allowed to see or omit it to query all of them. Serving archived binaries will need a new authenticated file endpoint (none exists).
+A client should keep `session_id` out of JavaScript (the Next app stores it in an httpOnly cookie) and send `Authorization: Bearer <session_id>` on every authenticated call. Pass a `workspace` the user is allowed to see, or omit it to query all of them. The message browser sidebar uses `POST /message/channels` (every archived channel). `POST /user/getchannels` is still the channels that person has posted in. Image and video bytes come from `GET /file/content/{id}`.
+
+`frontend/` dev server defaults to port 7979 (`npm run dev` in that directory). Set `API_BASE_URL` (see `frontend/.env.example`) to the API origin. `npm test` in `api/` and `frontend/` runs the unit and integration tests.
 
 ## Conventions for new API work
 
