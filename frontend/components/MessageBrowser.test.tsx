@@ -1,4 +1,4 @@
-import {cleanup, render, screen, waitFor} from '@testing-library/react';
+import {cleanup, render, screen, waitFor, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {PAGE_SIZE} from '@/lib/messages';
@@ -192,5 +192,36 @@ describe('message browser', () => {
         expect(await screen.findByText('Message 2')).toBeTruthy();
         expect(screen.queryByRole('button', {name: 'Next'})).toBeNull();
         expect(screen.queryByRole('button', {name: 'Previous'})).toBeNull();
+    });
+
+    it('opens the channel list and sorts from the column controls', async () => {
+        archive.mockImplementation(async (path: string, body?: {_orderby?: [string, string]}) => {
+            if (path === 'message/channels') {
+                return {ok: true, status: 200, data: {items: ['general', 'random']}};
+            }
+            if (path === 'slackuser/list') {
+                return {ok: true, status: 200, data: {items: []}};
+            }
+            return {ok: true, status: 200, data: {items: [], totalitems: 0, order: body?._orderby}};
+        });
+
+        const user = userEvent.setup();
+        render(<MessageBrowser workspace="acme"/>);
+        const toggle = await screen.findByRole('button', {name: 'Channels'});
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+        await user.click(toggle);
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        await user.click(screen.getByRole('button', {name: '#random'}));
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        expect(push).toHaveBeenCalledWith('/w/acme/messages?channel=random');
+
+        await user.click(within(screen.getByRole('group', {name: 'Sort messages'})).getByRole('button', {name: 'Date ↓'}));
+        await waitFor(() => {
+            expect(archive).toHaveBeenCalledWith('message/listthreaded', expect.objectContaining({
+                channel: 'general',
+                _orderby: ['datetime', 'asc'],
+            }));
+        });
     });
 });

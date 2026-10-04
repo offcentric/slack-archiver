@@ -49,20 +49,20 @@ class Server{
         });
 
         this.app.set('trust proxy', 1);
+        const sessionTtlSeconds = 60 * 60 * 24 * 31;
         this.app.use(session({
             cookie: {
                 secure: true,
-                maxAge: 60000,
-                expires: false,
+                maxAge: sessionTtlSeconds * 1000,
                 sameSite: 'none'
             },
             nane:'ch-api',
             resave: false,
             saveUninitialized: false,
             secret: 'm0ntegrapp4',
-            maxAge: 10800000,
             store: new (pgStore(session))({
-                tableName : 'user_session'
+                tableName : 'user_session',
+                ttl: sessionTtlSeconds,
             })
         }));
 

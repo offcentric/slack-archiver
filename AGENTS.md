@@ -130,7 +130,7 @@ Base URL is the Express port (`PORT`, template `6969`). JSON in/out. Prefer **PO
 One object per name in `user.workspaces`. If a `slackuser` row has `user_id` set to this app user for that workspace, `uid` / `name` / `real_name` are filled in; otherwise those fields are null. `uid` is stored on the session at login so a client can filter messages with `user`. Slack `name` / `real_name` live on each workspace object, not on the app user.
 3. `POST /user/getuserdata` — Bearer token, no body. Same profile nested as `{ "userData": { … } }`.
 4. `POST /user/getchannels` `{ workspace }` — Bearer token. Distinct `message.channel` values where `message.user` is the session Slack `uid` for that workspace. `403` if the workspace is not on the session ACL.
-5. Every authenticated call must send `Authorization: Bearer <session_id>`. Do not send `session_id` in the JSON body. Cookies exist (`user_session`) but clients should not rely on them.
+5. Every authenticated call must send `Authorization: Bearer <session_id>`. Do not send `session_id` in the JSON body. Cookies exist (`user_session`) but clients should not rely on them. The Next `sa_session` cookie and the API session row both last 31 days.
 6. `POST /user/logout` — Bearer token, no body.
 
 Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is omitted, results are limited to `session.workspaces[].workspace`. If set, it must match one of those names or the API returns 403 `no_access_to_workspace`.

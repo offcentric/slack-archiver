@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {usePathname, useRouter} from 'next/navigation';
+import {useEffect, useRef, useState} from 'react';
 import Logo from '@/components/Logo';
 import {useSession} from '@/context/SessionContext';
 import {identityForWorkspace, isAdmin} from '@/lib/types';
@@ -10,6 +11,30 @@ export default function NavBar() {
     const {user, logout} = useSession();
     const pathname = usePathname();
     const router = useRouter();
+    const [open, setOpen] = useState(false);
+    const account = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+        const onPointer = (event: MouseEvent) => {
+            if (!account.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        };
+        window.addEventListener('mousedown', onPointer);
+        window.addEventListener('keydown', onKey);
+        return () => {
+            window.removeEventListener('mousedown', onPointer);
+            window.removeEventListener('keydown', onKey);
+        };
+    }, [open]);
 
     if (!user || pathname === '/login') {
         return null;
@@ -19,6 +44,7 @@ export default function NavBar() {
     const workspace = match ? decodeURIComponent(match[1]) : null;
     const identity = identityForWorkspace(user, workspace);
     const realName = identity?.real_name || identity?.name || '';
+    const accountLabel = realName || user.email;
     const base = workspace ? `/w/${encodeURIComponent(workspace)}` : '';
 
     const onLogout = async () => {
@@ -39,14 +65,27 @@ export default function NavBar() {
                 </nav>
             )}
             <div className="topbar-user">
-                {realName && (
-                    <span className="real-name">
-                        <span className="avatar" aria-hidden="true">{realName.trim().charAt(0).toUpperCase()}</span>
-                        {realName}
-                    </span>
-                )}
-                {isAdmin(user) && <Link className="admin-link" href="/admin">Admin</Link>}
-                <button type="button" className="ghost" onClick={onLogout}>Log out</button>
+                <div className="account" ref={account}>
+                    <button
+                        type="button"
+                        className="account-trigger"
+                        aria-expanded={open}
+                        aria-haspopup="menu"
+                        aria-controls="account-menu"
+                        onClick={() => setOpen((current) => !current)}
+                    >
+                        <span className="avatar" aria-hidden="true">{accountLabel.trim().charAt(0).toUpperCase()}</span>
+                        <span className="account-name">{accountLabel}</span>
+                    </button>
+                    {open && (
+                        <div className="account-menu" id="account-menu" role="menu">
+                            {isAdmin(user) && (
+                                <Link className="account-item" role="menuitem" href="/admin" onClick={() => setOpen(false)}>Admin</Link>
+                            )}
+                            <button type="button" className="account-item" role="menuitem" onClick={onLogout}>Log out</button>
+                        </div>
+                    )}
+                </div>
             </div>
         </header>
     );

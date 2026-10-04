@@ -82,7 +82,9 @@ export function formatWhen(value?: string | null): string {
     if (Number.isNaN(date.getTime())) {
         return value;
     }
-    return new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'short'}).format(date);
+    const day = new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short', year: 'numeric'}).format(date);
+    const time = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(date);
+    return `${day} at ${time}`;
 }
 
 export function messagePath(workspace: string, ts: string): string {

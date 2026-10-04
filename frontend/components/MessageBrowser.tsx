@@ -5,7 +5,7 @@ import DateRangeFields from '@/components/DateRangeFields';
 import Spinner from '@/components/Spinner';
 import Link from 'next/link';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation';
-import {FormEvent, Fragment, useEffect, useMemo, useState} from 'react';
+import {FormEvent, Fragment, useEffect, useMemo, useRef, useState} from 'react';
 import {archive} from '@/lib/client';
 import {
     authorName,
@@ -31,6 +31,21 @@ const COLUMNS: Array<{key: 'datetime' | 'user' | 'text'; label: string}> = [
     {key: 'text', label: 'Message'},
 ];
 
+function useNarrowLayout(): boolean {
+    const [narrow, setNarrow] = useState(false);
+    useEffect(() => {
+        if (typeof window.matchMedia !== 'function') {
+            return;
+        }
+        const query = window.matchMedia('(max-width: 999px)');
+        const apply = () => setNarrow(query.matches);
+        apply();
+        query.addEventListener('change', apply);
+        return () => query.removeEventListener('change', apply);
+    }, []);
+    return narrow;
+}
+
 export default function MessageBrowser({workspace}: {workspace: string}) {
     const router = useRouter();
     const pathname = usePathname();
@@ -50,6 +65,9 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    const [channelsOpen, setChannelsOpen] = useState(false);
+    const narrow = useNarrowLayout();
+    const channelToggle = useRef<HTMLButtonElement>(null);
 
     const activeChannel = queryChannel || channels[0] || '';
 
@@ -168,9 +186,34 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
         router.push(hrefWith(pathname, searchParams, updates));
     };
 
+    const closeChannels = () => {
+        setChannelsOpen(false);
+        channelToggle.current?.focus();
+    };
+
     const selectChannel = (channel: string) => {
+        setChannelsOpen(false);
         remember({channel});
     };
+
+    useEffect(() => {
+        if (!channelsOpen) {
+            return;
+        }
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                closeChannels();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [channelsOpen]);
+
+    useEffect(() => {
+        if (!narrow) {
+            setChannelsOpen(false);
+        }
+    }, [narrow]);
 
     const applyFilters = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -208,21 +251,36 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
         );
     };
 
+    const sortActive = (column: string) => orderBy[0] === column || (column === 'datetime' && orderBy[0] === 'ts');
+
+    const sortMark = (column: string) => sortActive(column) ? (orderBy[1] === 'asc' ? ' ↑' : ' ↓') : '';
+
     const toggleSort = (column: string) => {
         setPage(1);
         setOrderBy((current) => {
-            if (current[0] === column) {
+            const active = current[0] === column || (column === 'datetime' && current[0] === 'ts');
+            if (active) {
                 return [column, current[1] === 'asc' ? 'desc' : 'asc'];
             }
-            return [column, column === 'datetime' || column === 'ts' ? 'desc' : 'asc'];
+            return [column, column === 'datetime' ? 'desc' : 'asc'];
         });
     };
+
+    const sortButton = (column: typeof COLUMNS[number]) => (
+        <button key={column.key} type="button" className="sort" aria-pressed={sortActive(column.key)} onClick={() => toggleSort(column.key)}>
+            {column.label}{sortMark(column.key)}
+        </button>
+    );
 
     const hasMore = messages.length < total && lastCount >= PAGE_SIZE;
 
     return (
-        <div className="browser">
-            <aside className="sidebar">
+        <div className={channelsOpen ? 'browser is-channels-open' : 'browser'}>
+            {channelsOpen && (
+                <button type="button" className="sidebar-backdrop" aria-label="Close channels" onClick={closeChannels}/>
+            )}
+            <aside id="channel-list" className="sidebar" aria-hidden={narrow && !channelsOpen ? true : undefined} inert={narrow && !channelsOpen ? true : undefined}>
+                <button type="button" className="sidebar-close" onClick={closeChannels}>Close</button>
                 <p className="sidebar-label">Channels</p>
                 {channels.length === 0 && !loading && <p className="muted">No archived channels yet.</p>}
                 <ul>
@@ -242,7 +300,19 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
             </aside>
             <section className="browser-main">
                 <header className="browser-head">
-                    <h1>{activeChannel ? `#${activeChannel}` : 'Messages'}</h1>
+                    <div className="browser-title">
+                        <button
+                            type="button"
+                            className="channel-toggle ghost"
+                            ref={channelToggle}
+                            aria-expanded={channelsOpen}
+                            aria-controls="channel-list"
+                            onClick={() => setChannelsOpen(true)}
+                        >
+                            Channels
+                        </button>
+                        <h1>{activeChannel ? `#${activeChannel}` : 'Messages'}</h1>
+                    </div>
                     <p className="muted">{total} message{total === 1 ? '' : 's'}</p>
                 </header>
                 {error && <p className="banner error" role="alert">{error}</p>}
@@ -278,18 +348,15 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                             </label>
                             <button type="submit">Apply</button>
                         </form>
+                        <div className="sort-bar" role="group" aria-label="Sort messages">
+                            <span className="sort-label">Sort</span>
+                            {COLUMNS.map((column) => sortButton(column))}
+                        </div>
                         <table className="grid">
                             <thead>
                                 <tr>
                                     {COLUMNS.map((column) => (
-                                        <th key={column.key}>
-                                            <button type="button" className="sort" onClick={() => toggleSort(column.key === 'datetime' ? 'datetime' : column.key)}>
-                                                {column.label}
-                                                {orderBy[0] === column.key || (column.key === 'datetime' && orderBy[0] === 'ts')
-                                                    ? (orderBy[1] === 'asc' ? ' ↑' : ' ↓')
-                                                    : ''}
-                                            </button>
-                                        </th>
+                                        <th key={column.key}>{sortButton(column)}</th>
                                     ))}
                                     <th>Replies</th>
                                 </tr>
@@ -297,7 +364,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                             <tbody aria-busy={loading} data-stale={loading && messages.length > 0 ? 'true' : undefined}>
                                 {loading && (
                                     <tr className="loading-row">
-                                        <td colSpan={4}><Spinner label="Loading messages…"/></td>
+                                        <td className="span-row" colSpan={4}><Spinner label="Loading messages…"/></td>
                                     </tr>
                                 )}
                                 {messages.map((message) => {
@@ -306,15 +373,15 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                     return (
                                         <Fragment key={message.ts}>
                                             <tr className={replies.length ? 'has-thread' : undefined}>
-                                                <td>
+                                                <td data-label="Date">
                                                     <Link href={messagePath(workspace, message.ts)}>{formatWhen(message.datetime) || message.ts}</Link>
                                                 </td>
-                                                <td>{authorButton(message)}</td>
-                                                <td className="message-text">
+                                                <td data-label="Author">{authorButton(message)}</td>
+                                                <td className="message-text" data-label="Message">
                                                     <p>{formatSlackText(message.text, names) || (message.files?.length ? '' : '—')}</p>
                                                     <Attachments files={message.files} compact/>
                                                 </td>
-                                                <td>
+                                                <td data-label="Replies">
                                                     {replies.length ? (
                                                         <button
                                                             type="button"
@@ -329,15 +396,15 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                             </tr>
                                             {open && replies.map((reply) => (
                                                 <tr key={reply.ts} className="reply-row">
-                                                    <td>
+                                                    <td data-label="Date">
                                                         <Link href={messagePath(workspace, reply.ts)}>{formatWhen(reply.datetime) || reply.ts}</Link>
                                                     </td>
-                                                    <td>{authorButton(reply)}</td>
-                                                    <td className="message-text">
+                                                    <td data-label="Author">{authorButton(reply)}</td>
+                                                    <td className="message-text" data-label="Message">
                                                         <p>{formatSlackText(reply.text, names) || (reply.files?.length ? '' : '—')}</p>
                                                         <Attachments files={reply.files} compact/>
                                                     </td>
-                                                    <td className="muted">{truncate(formatSlackText(message.text, names), 48) || 'reply'}</td>
+                                                    <td className="muted" data-label="Thread">{truncate(formatSlackText(message.text, names), 48) || 'reply'}</td>
                                                 </tr>
                                             ))}
                                         </Fragment>
@@ -345,7 +412,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                 })}
                                 {!loading && messages.length === 0 && (
                                     <tr>
-                                        <td colSpan={4}>No messages match these filters.</td>
+                                        <td className="span-row" colSpan={4}>No messages match these filters.</td>
                                     </tr>
                                 )}
                             </tbody>
