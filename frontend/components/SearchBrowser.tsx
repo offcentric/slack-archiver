@@ -155,9 +155,11 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
                     const parts = highlightTerms(text, submittedQ);
                     return (
                         <li key={hit.ts}>
-                            <p className="result-channel">
-                                <Link href={channelMessagesPath(workspace, hit.channel)} title={`Messages in #${hit.channel}`}>#{hit.channel}</Link>
-                            </p>
+                            {hit.channel && (
+                                <p className="result-channel">
+                                    <Link href={channelMessagesPath(workspace, hit.channel)} title={`Messages in #${hit.channel}`}>#{hit.channel}</Link>
+                                </p>
+                            )}
                             <p className="muted">
                                 <span className="result-author">{authorName(hit, names)}</span>
                                 {' · '}
