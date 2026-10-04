@@ -112,6 +112,42 @@ describe('message browser', () => {
         expect(screen.getByRole('button', {name: 'Hide 2 replies'})).toBeTruthy();
     });
 
+    it('filters the list by the author when their name is clicked', async () => {
+        archive.mockImplementation(async (path: string) => {
+            if (path === 'message/channels') {
+                return {ok: true, status: 200, data: {items: ['general']}};
+            }
+            if (path === 'slackuser/list') {
+                return {ok: true, status: 200, data: {items: [{uid: 'U1', real_name: 'Ada Lovelace'}]}};
+            }
+            return {
+                ok: true,
+                status: 200,
+                data: {
+                    totalitems: 1,
+                    items: [{
+                        id: 1,
+                        ts: '1.0',
+                        user: 'U1',
+                        text: 'Parent post',
+                        datetime: '2026-01-01T10:00:00Z',
+                    }],
+                },
+            };
+        });
+
+        const user = userEvent.setup();
+        render(<MessageBrowser workspace="acme"/>);
+        await user.click(await screen.findByRole('button', {name: 'Ada Lovelace'}));
+        await waitFor(() => {
+            expect(archive).toHaveBeenCalledWith('message/listthreaded', expect.objectContaining({
+                user: ['U1'],
+                _page: 1,
+            }));
+        });
+        expect((screen.getByLabelText('Filter by author') as HTMLInputElement).value).toBe('Ada Lovelace');
+    });
+
     it('appends the next page when the bottom of the list is visible', async () => {
         vi.stubGlobal('IntersectionObserver', ImmediateObserver);
         archive.mockImplementation(async (path: string, body?: {_page?: number}) => {

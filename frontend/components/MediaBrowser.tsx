@@ -1,7 +1,8 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {FormEvent, useEffect, useState} from 'react';
 import ArchiveMedia from '@/components/ArchiveMedia';
+import Spinner from '@/components/Spinner';
 import {archive} from '@/lib/client';
 import {formatWhen, itemsOf, PAGE_SIZE} from '@/lib/messages';
 import {appendPage, LoadMore} from '@/lib/useLoadMore';
@@ -12,6 +13,8 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
     const [people, setPeople] = useState<SlackUser[]>([]);
     const [channel, setChannel] = useState('');
     const [user, setUser] = useState('');
+    const [draftChannel, setDraftChannel] = useState('');
+    const [draftUser, setDraftUser] = useState('');
     const [page, setPage] = useState(1);
     const [items, setItems] = useState<ArchiveFile[]>([]);
     const [total, setTotal] = useState(0);
@@ -99,6 +102,19 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
         return () => window.removeEventListener('keydown', onKey);
     }, [active]);
 
+    const filterByUser = (uid: string) => {
+        setPage(1);
+        setDraftUser(uid);
+        setUser(uid);
+    };
+
+    const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setPage(1);
+        setChannel(draftChannel);
+        setUser(draftUser);
+    };
+
     const hasMore = items.length < total && lastCount >= PAGE_SIZE;
 
     return (
@@ -107,26 +123,28 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                 <h1>Media</h1>
                 <p className="muted">{total} file{total === 1 ? '' : 's'}</p>
             </header>
-            <div className="toolbar">
+            <form className="toolbar" onSubmit={applyFilters}>
                 <label>
                     Channel
-                    <select value={channel} onChange={(event) => { setPage(1); setChannel(event.target.value); }}>
+                    <select value={draftChannel} onChange={(event) => setDraftChannel(event.target.value)}>
                         <option value="">All channels</option>
                         {channels.map((name) => <option key={name} value={name}>#{name}</option>)}
                     </select>
                 </label>
                 <label>
                     User
-                    <select value={user} onChange={(event) => { setPage(1); setUser(event.target.value); }}>
+                    <select value={draftUser} onChange={(event) => setDraftUser(event.target.value)}>
                         <option value="">Everyone</option>
                         {people.map((person) => (
                             <option key={person.uid} value={person.uid}>{person.real_name || person.name || person.uid}</option>
                         ))}
                     </select>
                 </label>
-            </div>
+                <button type="submit">Apply</button>
+            </form>
             {error && <p className="banner error" role="alert">{error}</p>}
-            <ul className="album">
+            {loading && <Spinner label="Loading media…"/>}
+            <ul className="album" aria-busy={loading} data-stale={loading && items.length > 0 ? 'true' : undefined}>
                 {items.map((file) => {
                     const who = file.real_name || file.slack_name || file.user || 'Unknown';
                     return (
@@ -135,7 +153,13 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                                 <ArchiveMedia file={file} muted/>
                             </button>
                             <p>{formatWhen(file.created_at)}</p>
-                            <p className="muted">{who}</p>
+                            <p className="muted">
+                                {file.user ? (
+                                    <button type="button" className="user-link" onClick={() => filterByUser(file.user || '')}>
+                                        {who}
+                                    </button>
+                                ) : who}
+                            </p>
                         </li>
                     );
                 })}

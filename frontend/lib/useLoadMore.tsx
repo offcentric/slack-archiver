@@ -1,4 +1,5 @@
 import {useEffect, useRef} from 'react';
+import Spinner from '@/components/Spinner';
 
 export function appendPage<T>(current: T[], next: T[], page: number, key: (item: T) => string | number): T[] {
     if (page <= 1) {
@@ -9,7 +10,7 @@ export function appendPage<T>(current: T[], next: T[], page: number, key: (item:
 }
 
 export function useLoadMore(onLoad: () => void, enabled: boolean) {
-    const ref = useRef<HTMLParagraphElement | null>(null);
+    const ref = useRef<HTMLDivElement | null>(null);
     const onLoadRef = useRef(onLoad);
     onLoadRef.current = onLoad;
 
@@ -39,8 +40,8 @@ export function LoadMore({enabled, pending, onLoad}: {enabled: boolean; pending:
         return null;
     }
     return (
-        <p ref={ref} className="load-more" role="status">
-            {pending ? 'Loading more…' : ''}
-        </p>
+        <div ref={ref} className="load-more">
+            {pending && <Spinner label="Loading more…"/>}
+        </div>
     );
 }

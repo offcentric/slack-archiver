@@ -1,6 +1,7 @@
 'use client';
 
 import Attachments from '@/components/Attachments';
+import Spinner from '@/components/Spinner';
 import Link from 'next/link';
 import {useRouter, useSearchParams} from 'next/navigation';
 import {FormEvent, Fragment, KeyboardEvent, useEffect, useMemo, useState} from 'react';
@@ -164,6 +165,27 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
         }
     };
 
+    const filterByAuthor = (message: ArchiveMessage) => {
+        if (!message.user) {
+            return;
+        }
+        setPage(1);
+        setDraft((current) => ({...current, user: authorName(message, names)}));
+        setApplied((current) => ({...current, user: message.user || ''}));
+    };
+
+    const authorButton = (message: ArchiveMessage) => {
+        const name = authorName(message, names);
+        if (!message.user) {
+            return name;
+        }
+        return (
+            <button type="button" className="user-link" onClick={() => filterByAuthor(message)}>
+                {name}
+            </button>
+        );
+    };
+
     const toggleSort = (column: string) => {
         setPage(1);
         setOrderBy((current) => {
@@ -254,7 +276,12 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                     <th/>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody aria-busy={loading} data-stale={loading && messages.length > 0 ? 'true' : undefined}>
+                                {loading && (
+                                    <tr className="loading-row">
+                                        <td colSpan={4}><Spinner label="Loading messages…"/></td>
+                                    </tr>
+                                )}
                                 {messages.map((message) => {
                                     const replies = message.replies || [];
                                     const open = expanded.has(message.ts);
@@ -264,7 +291,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                 <td>
                                                     <Link href={messagePath(workspace, message.ts)}>{formatWhen(message.datetime) || message.ts}</Link>
                                                 </td>
-                                                <td>{authorName(message, names)}</td>
+                                                <td>{authorButton(message)}</td>
                                                 <td className="message-text">
                                                     <p>{formatSlackText(message.text, names) || (message.files?.length ? '' : '—')}</p>
                                                     <Attachments files={message.files} compact/>
@@ -287,7 +314,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                     <td>
                                                         <Link href={messagePath(workspace, reply.ts)}>{formatWhen(reply.datetime) || reply.ts}</Link>
                                                     </td>
-                                                    <td>{authorName(reply, names)}</td>
+                                                    <td>{authorButton(reply)}</td>
                                                     <td className="message-text">
                                                         <p>{formatSlackText(reply.text, names) || (reply.files?.length ? '' : '—')}</p>
                                                         <Attachments files={reply.files} compact/>
