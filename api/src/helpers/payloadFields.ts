@@ -1,6 +1,7 @@
 import {Request} from 'express';
 import {isEmpty, isValidDatetime, isValidEmail, isValidPassword, isValidTimestamp} from "../helpers/validate";
 import Exception from '../models/exception';
+import {PayloadFields as AdminFields} from '../payload/admin';
 import {PayloadFields as FileFields} from '../payload/file';
 import {PayloadFields as ErrorLogFields} from '../payload/errorlog';
 import {PayloadFields as MessageFields} from '../payload/message';
@@ -8,6 +9,7 @@ import {PayloadFields as UserFields} from '../payload/user';
 import {PayloadItemInterface} from "interfaces/payload";
 
 const AllFields = {
+    'admin': AdminFields,
     'message': MessageFields,
     'file': FileFields,
     'errorlog': ErrorLogFields,

@@ -1,63 +1,96 @@
 'use client';
-import {useSession} from '@/context/SessionContext';
-import {api} from '@/helpers/api';
-import {useState} from 'react';
+
 import {useRouter} from 'next/navigation';
+import {FormEvent, useState} from 'react';
+import Logo from '@/components/Logo';
+import {useSession} from '@/context/SessionContext';
+import {isEmail, loginErrorMessage, sendCodeOutcome} from '@/lib/login';
 
 export default function LoginPage() {
-    const {setSession} = useSession();
+    const {refresh} = useSession();
+    const router = useRouter();
     const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
     const [showCode, setShowCode] = useState(false);
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState(false);
-    const router = useRouter();
+    const [notice, setNotice] = useState('');
+    const [error, setError] = useState('');
+    const [busy, setBusy] = useState(false);
 
-    const isValidEmail = /^[^@\s]+@[^@\s]+.[^@\s]+$/.test(email);
-
-    const handleSendCode = async () => {
-        const res:any = await api('user/sendlogincode', {email});
-        if (res.error) {
-            setError(true);
-            setMessage(res.message);
-        } else {
-            setError(false);
-            setMessage('If your account exists, you will receive a 6-digit code in your email inbox. Fill this code in below.');
-            setShowCode(true);
+    const sendCode = async (event: FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setNotice('');
+        setBusy(true);
+        const res = await fetch('/api/auth/send-code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email}),
+        });
+        setBusy(false);
+        if (sendCodeOutcome(res.status) === 'unavailable') {
+            setError('The archive is unavailable right now. Try again in a moment.');
+            return;
         }
+        setShowCode(true);
+        setNotice('If an account exists for that address, a 6-digit code is on its way.');
     };
 
-    const handleLogin = async () => {
-        const res:any = await api('user/login', {email, code});
-        if (res.error) {
-            setError(true);
-            setMessage(res.message);
-        } else {
-            setError(false);
-            setMessage('Login successful!');
-            setSession({sessionId: res.sessionId, user: res.user, workspaces: res.workspaces || [], workspace: null});
-            localStorage.setItem('session', JSON.stringify(res));
-            if (res.workspaces?.length) router.push('/selectteam'); else router.push('/messages');
+    const login = async (event: FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setBusy(true);
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, code}),
+        });
+        const data = await res.json().catch(() => ({}));
+        setBusy(false);
+        if (!res.ok) {
+            setError(loginErrorMessage(res.status, data.message));
+            return;
         }
+        await refresh();
+        router.push('/');
     };
 
-return (<>
-    <h1>Login</h1>
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className = "w-full p-2 border rounded mb-2"/>
-    {showCode && (
-        <input type="text" placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} className="w-full p-2 border rounded mb-2"/>
-    )}
-
-    {!showCode ? (
-        <button onClick={handleSendCode} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50" disabled={!isValidEmail}>Send Code</button>
-    ) : (
-        <button onClick={handleLogin} className="bg-green-600 text-white px-4 py-2 rounded">Login</button>
-    )}
-
-    {message && (
-        <div className={`mt-4 p-3 rounded ${error ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {message}
+    return (
+        <div className="login-wrap">
+            <form className="login-card" onSubmit={showCode ? login : sendCode}>
+                <div className="login-logo"><Logo size={56}/></div>
+                <h1>Welcome back</h1>
+                <p className="muted">Use the email on your archive account. We will send a one-time code.</p>
+                <div className="stack">
+                    <label>
+                        Email
+                        <input
+                            type="email"
+                            autoComplete="username"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            required
+                        />
+                    </label>
+                    {showCode && (
+                        <label>
+                            Login code
+                            <input
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                placeholder="6-digit code"
+                                value={code}
+                                onChange={(event) => setCode(event.target.value)}
+                                required
+                            />
+                        </label>
+                    )}
+                    <button type="submit" disabled={busy || !isEmail(email)}>
+                        {showCode ? 'Sign in' : 'Send code'}
+                    </button>
+                </div>
+                {notice && <p className="banner" role="status">{notice}</p>}
+                {error && <p className="banner error" role="alert">{error}</p>}
+            </form>
         </div>
-    )}
-    </>);
+    );
 }

@@ -1,10 +1,18 @@
+import fs from 'fs';
 import {GenericController} from '../controllers/_genericController';
 import {Request, Response} from "../interfaces/controller";
 import {File} from '../models/file';
 import {checkAuth} from "helpers/auth";
+import {getWorkspaceNames} from "interfaces/user";
+import {getEnvConfig} from "helpers/config";
+import {contentDispositionFilename, FILE_SORT_COLUMNS, sanitizeOrderBy} from "helpers/archiveQuery";
+import {archiveRoots, resolveArchiveFile} from "helpers/fileAccess";
+import Exception from "models/exception";
+import {status} from "helpers/status";
 
 export class FileController extends GenericController{
-    tableName = 'message';
+    tableName = 'file';
+    declare model: File;
     constructor(req:Request){
         super(req);
         this.model = new File(req);
@@ -18,10 +26,48 @@ export class FileController extends GenericController{
             const payload = this.getPayload();
             this.handleWorkspaceFilter(res, payload, sessionData);
             this.handleDateFilter(res, payload, 'created_at');
-            const  {orderBy, limit} = this.getOrderByAndLimit(req);
-            const ret = await this.model._getCollection(payload, orderBy, limit, true);
+            const {orderBy, limit} = this.getOrderByAndLimit(req);
+            const safeOrder = sanitizeOrderBy(orderBy, FILE_SORT_COLUMNS, ['created_at', 'desc']);
+            if (payload.media) {
+                delete payload.media;
+                const ret = await this.model.listMedia(payload, safeOrder, limit);
+                return this.returnSuccess(res, ret);
+            }
+            delete payload.channel;
+            delete payload.media;
+            const ret = await this.model._getCollection(payload, safeOrder, limit, true);
             return this.returnSuccess(res, ret);
         }catch (e) {
+            return this.returnExceptionAsError(res, e);
+        }
+    }
+
+    async content(req:Request, res:Response) {
+        try {
+            const sessionData = await checkAuth(req);
+            const id = parseInt(String(req.params.id), 10);
+            if (!id) {
+                throw new Exception('invalid_file_id', status.bad);
+            }
+            const file = await this.model._get({id}, true, true);
+            const allowed = getWorkspaceNames(sessionData.workspaces);
+            if (!file?.workspace || !allowed.includes(file.workspace)) {
+                throw new Exception('no_access_to_workspace', status.forbidden);
+            }
+            const target = resolveArchiveFile(
+                archiveRoots(getEnvConfig('FILES_DOWNLOAD_DIRECTORY', '../files')),
+                file.savepath,
+            );
+            if (!target || !fs.existsSync(target)) {
+                throw new Exception('file_not_on_disk', status.notfound);
+            }
+            const filename = contentDispositionFilename(file.name || file.title);
+            res.setHeader('Content-Type', file.mimetype || 'application/octet-stream');
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+            res.setHeader('Cache-Control', 'private, max-age=3600');
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            fs.createReadStream(target).pipe(res);
+        } catch (e) {
             return this.returnExceptionAsError(res, e);
         }
     }
@@ -33,4 +79,8 @@ export const get = async(req:Request, res:Response) => {
 
 export const list = async(req:Request, res:Response) => {
     return await (new FileController(req)).list(req, res);
+}
+
+export const content = async(req:Request, res:Response) => {
+    return await (new FileController(req)).content(req, res);
 }

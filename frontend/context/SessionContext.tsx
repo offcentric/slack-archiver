@@ -1,43 +1,59 @@
 'use client';
-import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type SessionData = {
-    sessionId: string | null;
-    user: any;
-    workspaces: string[];
-    workspace: string | null;
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
+import {UserProfile} from '@/lib/types';
+
+type SessionValue = {
+    user: UserProfile | null;
+    loading: boolean;
+    setUser: (user: UserProfile | null) => void;
+    refresh: () => Promise<void>;
+    logout: () => Promise<void>;
 };
 
-const defaultSession: SessionData = {
-    sessionId: null,
+const SessionContext = createContext<SessionValue>({
     user: null,
-    workspaces: [],
-    workspace: null,
-};
-
-const SessionContext = createContext<{
-    session: SessionData;
-    setSession: React.Dispatch<React.SetStateAction>;
-}>({ session: defaultSession, setSession: () => {} });
+    loading: true,
+    setUser: () => undefined,
+    refresh: async () => undefined,
+    logout: async () => undefined,
+});
 
 export const useSession = () => useContext(SessionContext);
 
-export const SessionProvider = ({ children }: { children: React.ReactNode }) => {
-    const [session, setSession] = useState(() => {
-        if (typeof window !== 'undefined') {onths
-            const local = localStorage.getItem('session');
-            return local ? JSON.parse(local) : defaultSession;
+export function SessionProvider({children}: {children: React.ReactNode}) {
+    const [user, setUser] = useState<UserProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+    const requestId = useRef(0);
+
+    const refresh = useCallback(async () => {
+        const id = ++requestId.current;
+        const res = await fetch('/api/auth/session');
+        if (id !== requestId.current) {
+            return;
         }
-        return defaultSession;
-    });
+        if (!res.ok) {
+            setUser(null);
+            setLoading(false);
+            return;
+        }
+        const data = await res.json();
+        setUser(data.userData ?? null);
+        setLoading(false);
+    }, []);
 
     useEffect(() => {
-        localStorage.setItem('session', JSON.stringify(session));
-    }, [session]);
+        refresh();
+    }, [refresh]);
+
+    const logout = useCallback(async () => {
+        await fetch('/api/auth/logout', {method: 'POST'});
+        setUser(null);
+    }, []);
 
     return (
-        <SessionContext.Provider value={{ session, setSession }}>
+        <SessionContext.Provider value={{user, loading, setUser, refresh, logout}}>
             {children}
         </SessionContext.Provider>
     );
-};
+}

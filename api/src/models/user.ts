@@ -1,7 +1,7 @@
 import GenericModel from "models/_genericModel";
 import {Request} from "express";
 import Metadata from "interfaces/_metadata";
-import {UserResponse} from "interfaces/user";
+import {getWorkspaceNames, UserResponse, WorkspaceIdentity} from "interfaces/user";
 import {set as setCache, get as getCache } from "helpers/cache";
 import {clearSessionStore} from "helpers/auth";
 import Exception from "models/exception";
@@ -45,13 +45,25 @@ export class User extends GenericModel {
 
 
     async enrichUserResponse(userData: Record<string, any>): Promise<UserResponse> {
-        const workspaces = await (new Slackuser(this.request)).findIdentitiesForUserId(userData.id);
-        const primary = workspaces.find((item) => item.uid) || workspaces[0];
+        const names = getWorkspaceNames(userData.workspaces);
+        const linked = userData.id
+            ? await (new Slackuser(this.request)).findIdentitiesForUserId(userData.id)
+            : [];
+        const byWorkspace = new Map(linked.map((item) => [item.workspace, item]));
+        const workspaces: WorkspaceIdentity[] = names.map((workspace) => {
+            return byWorkspace.get(workspace) ?? {
+                workspace,
+                uid: null,
+                name: null,
+                real_name: null,
+            };
+        });
+        const rest = {...userData};
+        delete rest.name;
+        delete rest.real_name;
         return {
-            ...userData,
+            ...rest,
             workspaces,
-            name: primary?.name ?? null,
-            real_name: primary?.real_name ?? null,
         };
     }
 

@@ -3,6 +3,7 @@ import * as controller from '../controllers/fileController';
 
 const router = express.Router({mergeParams: true});
 
+router.get('/content/:id', controller.content);
 router.post('/get', controller.get);
 router.get('/list', controller.list);
 router.post('/list', controller.list);

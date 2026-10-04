@@ -14,7 +14,7 @@ import {
 } from '../helpers/data';
 import {getNow} from "helpers/date";
 import {getPayloadForPath} from "helpers/payloadFields";
-import {search} from '../helpers/search';
+import {search, SearchFilters} from '../helpers/search';
 import {status} from '../helpers/status';
 import ApiObject from "../interfaces/_apiobject";
 import Generic from "interfaces/_generic";
@@ -174,9 +174,9 @@ export default class GenericModel{
         return ret;
     }
 
-    async _search(searchStr:string, limit?:number, page?:number):Promise<Array<any>>{
+    async _search(searchStr:string, limit?:number, page?:number, filters?: SearchFilters):Promise<Array<any>>{
         const fields  = this.metadata.filter((item:Metadata) => item.searchable).map((item:Metadata) => item.key);
-        return await search(this.tableName, fields, searchStr, limit, page);
+        return await search(this.tableName, fields, searchStr, limit, page, filters);
     }
 
     async getField(fieldName:string, payload:QueryPayload){

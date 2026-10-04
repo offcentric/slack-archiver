@@ -1,10 +1,22 @@
-import '@/app/css/global.css';
-import { SessionProvider } from '@/context/SessionContext';
+import '@/app/globals.css';
 import NavBar from '@/components/NavBar';
+import {SessionProvider} from '@/context/SessionContext';
 import React from 'react';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const metadata = {
+    title: 'Slack Archive',
+    description: 'Browse the Slack archive for workspaces you can access.',
+};
+
+export default function RootLayout({children}: {children: React.ReactNode}) {
     return (
-        {children}
+        <html lang="en">
+            <body>
+                <SessionProvider>
+                    <NavBar/>
+                    <main>{children}</main>
+                </SessionProvider>
+            </body>
+        </html>
     );
 }

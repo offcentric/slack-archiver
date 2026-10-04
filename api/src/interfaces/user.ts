@@ -12,8 +12,6 @@ export interface UserResponse {
     id?: number;
     email?: string;
     role?: number;
-    name?: string | null;
-    real_name?: string | null;
     workspaces: WorkspaceIdentity[];
 }
 

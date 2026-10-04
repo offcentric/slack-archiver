@@ -22,7 +22,6 @@ class Server{
         this.app = express();
         this.router = express.Router({mergeParams: true});
         this.routes();
-        this.server();
     }
 
     routes() {
@@ -115,4 +114,10 @@ class Server{
     }
 }
 
-export default new Server();
+const server = new Server();
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+    server.server();
+}
+
+export const app = server.app;
+export default server;
