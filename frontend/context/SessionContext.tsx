@@ -38,12 +38,14 @@ export function SessionProvider({children}: {children: React.ReactNode}) {
         try {
             const res = await fetch('/api/auth/session', {cache: 'no-store'});
             const data = await res.json().catch(() => ({}));
-            if (res.ok) {
+            if (data.message === 'backend_error') {
+                result = {user: null, error: sessionUnavailableMessage()};
+            } else if (res.ok) {
                 result = {user: data.userData ?? null, error: null};
             } else if (res.status === 401) {
                 result = {user: null, error: null};
             } else {
-                result = {user: null, error: sessionUnavailableMessage(Number(data.upstream_status) || res.status)};
+                result = {user: null, error: sessionUnavailableMessage()};
             }
         } catch {
             result = {user: null, error: sessionUnavailableMessage()};

@@ -74,7 +74,7 @@ export class UserController extends GenericController{
             if(e.message !== 'no_session'){
                 return this.handleError(res, e);
             }
-            return this.returnSuccess(res, {...successMessage, ...{status:'logged_out'}});
+            return this.returnError(res, 'auth_fail', status.unauthorized);
         }
     }
 

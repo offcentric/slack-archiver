@@ -26,7 +26,7 @@ describe('login', () => {
         expect(sessionOutcome(404, {error: true, code: 404})).toBe('unavailable');
         expect(sessionOutcome(500, {})).toBe('unavailable');
         expect(sessionOutcome(200, {})).toBe('unavailable');
-        expect(sessionUnavailableMessage(404)).toMatch(/HTTP 404/);
+        expect(sessionUnavailableMessage()).toBe('The archive server ran into a problem. Try again in a moment.');
     });
 
     it('checks a basic email shape', () => {

@@ -23,8 +23,8 @@ export async function GET() {
             cache: 'no-store',
         });
     } catch (err) {
-        logUpstream('session', url, 0, err instanceof Error ? err.message : String(err));
-        return NextResponse.json({error: true, message: 'archive_api_unreachable', upstream_status: 0}, {status: 502});
+        logUpstream('session', url, 0, err instanceof Error ? err.message : 'request failed');
+        return NextResponse.json({error: true, message: 'backend_error'});
     }
 
     const text = await upstream.text();
@@ -45,9 +45,6 @@ export async function GET() {
         return res;
     }
 
-    logUpstream('session', url, upstream.status, text.slice(0, 300));
-    return NextResponse.json(
-        {error: true, message: 'archive_api_unavailable', upstream_status: upstream.status},
-        {status: 502},
-    );
+    logUpstream('session', url, upstream.status, 'upstream error');
+    return NextResponse.json({error: true, message: 'backend_error'});
 }

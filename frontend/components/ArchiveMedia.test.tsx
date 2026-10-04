@@ -1,6 +1,6 @@
 import {cleanup, fireEvent, render, screen} from '@testing-library/react';
 import {afterEach, describe, expect, it} from 'vitest';
-import ArchiveMedia, {PLACEHOLDER_SRC} from './ArchiveMedia';
+import ArchiveMedia, {PLACEHOLDER_SRC, VIDEO_PLACEHOLDER_SRC} from './ArchiveMedia';
 
 afterEach(cleanup);
 
@@ -16,9 +16,14 @@ describe('archive media', () => {
         expect(fallback.getAttribute('src')).toBe(PLACEHOLDER_SRC);
     });
 
-    it('uses the placeholder as a poster for videos', () => {
+    it('marks videos with a video poster instead of the missing-image placeholder', () => {
         const {container} = render(<ArchiveMedia file={{id: 8, title: 'Clip', mimetype: 'video/mp4'}}/>);
         const video = container.querySelector('video');
-        expect(video?.getAttribute('poster')).toBe(PLACEHOLDER_SRC);
+        expect(video?.getAttribute('poster')).toBe(VIDEO_PLACEHOLDER_SRC);
+        expect(video?.getAttribute('poster')).not.toBe(PLACEHOLDER_SRC);
+
+        fireEvent.error(video!);
+        const fallback = screen.getByRole('img', {name: 'Clip (video unavailable)'});
+        expect(fallback.getAttribute('src')).toBe(VIDEO_PLACEHOLDER_SRC);
     });
 });

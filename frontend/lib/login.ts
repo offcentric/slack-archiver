@@ -31,9 +31,8 @@ export function sessionOutcome(status: number, data: unknown): SessionOutcome {
     return 'unavailable';
 }
 
-export function sessionUnavailableMessage(upstreamStatus?: number): string {
-    const detail = upstreamStatus ? ` (HTTP ${upstreamStatus} from the archive API)` : '';
-    return `Signed in, but the archive API could not confirm your session${detail}. The API may be down or running an older build.`;
+export function sessionUnavailableMessage(): string {
+    return 'The archive server ran into a problem. Try again in a moment.';
 }
 
 export function isEmail(value: string): boolean {

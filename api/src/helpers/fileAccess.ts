@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -27,17 +28,38 @@ export function archiveRoots(configured?: string | null): string[] {
     return roots;
 }
 
+function insideRoot(rootResolved: string, target: string): boolean {
+    const relative = path.relative(rootResolved, target);
+    return Boolean(relative) && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
 export function resolveArchiveFile(root: string | readonly string[], savepath: string | null | undefined): string | null {
     if (!savepath || savepath.includes('\0')) {
         return null;
     }
-    const target = path.resolve(expandHome(savepath));
     const roots = (Array.isArray(root) ? root : [root]).map((item) => path.resolve(expandHome(item)));
-    for (const rootResolved of roots) {
-        const relative = path.relative(rootResolved, target);
-        if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
-            return target;
+    const expanded = expandHome(savepath);
+    const candidates: string[] = [];
+    const add = (target: string) => {
+        if (roots.some((rootResolved) => insideRoot(rootResolved, target)) && !candidates.includes(target)) {
+            candidates.push(target);
+        }
+    };
+
+    add(path.resolve(expanded));
+    if (!path.isAbsolute(expanded)) {
+        const legacy = expanded.replace(/^files[/\\]/, '');
+        if (legacy !== expanded) {
+            for (const rootResolved of roots) {
+                add(path.resolve(rootResolved, legacy));
+            }
         }
     }
-    return null;
+
+    const present = candidates.find((target) => fs.existsSync(target));
+    if (present) {
+        return present;
+    }
+    const underExistingRoot = candidates.find((target) => roots.some((rootResolved) => insideRoot(rootResolved, target) && fs.existsSync(rootResolved)));
+    return underExistingRoot ?? candidates[0] ?? null;
 }

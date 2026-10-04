@@ -24,11 +24,6 @@ const metadata:Array<Metadata> = [
         show_in_list : true,
     },
     {
-        key:"team_id",
-        type : "string",
-        show_in_list : true,
-    },
-    {
         key:"name",
         type : "string",
         show_in_list : true,
@@ -87,13 +82,12 @@ export class Slackuser extends GenericModel {
         const rows = await db(this.tableName)
             .where('user_id', userId)
             .orderBy('workspace')
-            .select('id', 'uid', 'workspace', 'team_id', 'name', 'real_name', 'is_bot');
+            .select('id', 'uid', 'workspace', 'name', 'real_name', 'is_bot');
 
         return rows.map((row) => ({
             id: row.id,
             uid: row.uid ?? null,
             workspace: row.workspace,
-            team_id: row.team_id ?? null,
             name: row.name ?? null,
             real_name: row.real_name ?? null,
             is_bot: row.is_bot ?? null,

@@ -53,6 +53,13 @@ describe('archive file paths', () => {
         expect(resolveArchiveFile(archiveRoots('~/Projects/missing/files'), savepath))
             .toBe(path.resolve(process.cwd(), savepath));
     });
+
+    it('maps legacy files/ savepaths onto the archive directory', () => {
+        const savepath = 'files/acme/general/photo.png';
+        expect(resolveArchiveFile(archiveRoots('~/Projects/missing/files'), savepath))
+            .toBe(path.resolve(process.cwd(), '../files/acme/general/photo.png'));
+        expect(resolveArchiveFile(archiveRoots('~/Projects/missing/files'), 'files/../../secrets.txt')).toBeNull();
+    });
 });
 
 describe('message search scope', () => {

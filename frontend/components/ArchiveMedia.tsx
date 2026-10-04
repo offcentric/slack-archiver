@@ -5,6 +5,7 @@ import {isVideoFile} from '@/lib/slackText';
 import {ArchiveFile} from '@/lib/types';
 
 export const PLACEHOLDER_SRC = '/media-placeholder.jpg';
+export const VIDEO_PLACEHOLDER_SRC = '/video-placeholder.svg';
 
 export function fileSrc(file: ArchiveFile): string {
     return `/api/files/${file.id}`;
@@ -21,15 +22,18 @@ interface Props {
 export default function ArchiveMedia({file, controls = false, autoPlay = false, muted = false, className}: Props) {
     const [failed, setFailed] = useState(false);
     const label = file.title || file.name || 'Archived file';
+    const video = isVideoFile(file);
 
     useEffect(() => {
         setFailed(false);
     }, [file.id]);
 
     if (failed) {
-        return <img className={className} src={PLACEHOLDER_SRC} alt={`${label} (no preview)`} data-placeholder="true"/>;
+        return video
+            ? <img className={className} src={VIDEO_PLACEHOLDER_SRC} alt={`${label} (video unavailable)`} data-placeholder="true"/>
+            : <img className={className} src={PLACEHOLDER_SRC} alt={`${label} (no preview)`} data-placeholder="true"/>;
     }
-    if (isVideoFile(file)) {
+    if (video) {
         return (
             <video
                 className={className}
@@ -38,7 +42,8 @@ export default function ArchiveMedia({file, controls = false, autoPlay = false, 
                 autoPlay={autoPlay}
                 muted={muted}
                 preload="metadata"
-                poster={PLACEHOLDER_SRC}
+                poster={VIDEO_PLACEHOLDER_SRC}
+                aria-label={`${label} (video)`}
                 onError={() => setFailed(true)}
             />
         );

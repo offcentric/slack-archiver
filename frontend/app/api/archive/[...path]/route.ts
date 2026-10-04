@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {apiBase, readSessionId} from '@/lib/server/upstream';
+import {apiBase, logUpstream, readSessionId} from '@/lib/server/upstream';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +24,10 @@ export async function POST(req: Request, context: { params: Promise<{ path: stri
         body: body || '{}',
         cache: 'no-store',
     });
+    if (!upstream.ok) {
+        logUpstream('archive', `${apiBase()}/${path.join('/')}`, upstream.status, 'upstream error');
+        return NextResponse.json({error: true, message: 'backend_error'}, {status: upstream.status});
+    }
     const text = await upstream.text();
     return new NextResponse(text, {
         status: upstream.status,

@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {apiBase, readSessionId} from '@/lib/server/upstream';
+import {apiBase, logUpstream, readSessionId} from '@/lib/server/upstream';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,11 +18,8 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
         cache: 'no-store',
     });
     if (!upstream.ok || !upstream.body) {
-        const text = await upstream.text();
-        return new NextResponse(text, {
-            status: upstream.status,
-            headers: {'Content-Type': upstream.headers.get('content-type') || 'application/json'},
-        });
+        logUpstream('file', `${apiBase()}/file/content/${id}`, upstream.status, 'upstream error');
+        return NextResponse.json({error: true, message: 'backend_error'}, {status: upstream.status || 502});
     }
     return new NextResponse(upstream.body, {
         status: 200,

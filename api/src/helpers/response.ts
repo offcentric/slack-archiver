@@ -1,5 +1,4 @@
 import { logError } from '../helpers/errorlog';
-import {isDevEnvironment} from '../helpers/env';
 import {successMessage, errorMessage, status, codes} from '../helpers/status';
 import {Response} from "../interfaces/controller";
 import Exception, {ExceptionInterface} from '../models/exception';
@@ -16,13 +15,30 @@ export const returnSuccess = (res:Response, successMsg:Record<string, any> = suc
     return doResponse ? res.status(code).send(successMsg) : successMsg;
 }
 
-export const returnError = (res:Response, message:string = errorMessage.message, code:number = status.bad, doResponse = true) => {
+const SAFE_MESSAGE = /^[a-z0-9_ :{}.,'+-]{1,200}$/i;
+
+export const clientErrorMessage = (message: unknown): string => {
+    if (typeof message !== 'string') {
+        return 'backend_error';
+    }
+    const trimmed = message.trim();
+    if (!SAFE_MESSAGE.test(trimmed) || /stack|routine|parse_relation|does not exist/i.test(trimmed)) {
+        return 'backend_error';
+    }
+    return trimmed;
+};
+
+export const returnError = (res:Response, message:unknown = errorMessage.message, code:number = status.bad, doResponse = true) => {
+    if (typeof message !== 'string') {
+        console.error('API error', message);
+    }
     const errMsg = {...errorMessage};
-    errMsg.message = message;
+    errMsg.message = clientErrorMessage(message);
+    delete errMsg.stack;
     if(codes.indexOf(code) === -1){ // ensure the code is valid in http schema
         code = status.error;
     }
-    logError(new Exception(message, code));
+    logError(new Exception(errMsg.message, code));
     return doResponse ? res.status(code).json(errMsg) : errMsg;
 }
 
@@ -37,16 +53,16 @@ export const returnExceptionAsError = (res:Response, e:Exception, doResponse = t
     return doResponse ? res.status(code).json(errMsg) : errMsg;
 }
 
-export const outputErrorData = (e:ExceptionInterface|Error, showStack = false) => {
+export const outputErrorData = (e:ExceptionInterface|Error) => {
+    console.error('API exception', e);
     const errMsg = {...errorMessage};
-    for(const el in errMsg){
-        if(e[el]){
-            errMsg[el] = e[el];
-        }
+    errMsg.message = clientErrorMessage(e?.message);
+    const detail = (e as ExceptionInterface)?.detail;
+    errMsg.detail = typeof detail === 'string' ? clientErrorMessage(detail) : null;
+    if (errMsg.detail === 'backend_error') {
+        errMsg.detail = null;
     }
-    if(!isDevEnvironment && !showStack){
-        delete(errMsg['stack']);
-    }
+    delete errMsg.stack;
     return errMsg;
 }
 
