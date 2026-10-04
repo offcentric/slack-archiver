@@ -3,6 +3,7 @@ import {db} from '../db/knex';
 export interface SearchFilters {
     workspace?: string[];
     channel?: string;
+    user?: string;
 }
 
 export const buildSearchQuery = (
@@ -30,6 +31,10 @@ export const buildSearchQuery = (
     if (filters?.channel) {
         where.push('"channel" = ?');
         whereBindings.push(filters.channel);
+    }
+    if (filters?.user) {
+        where.push('"user" = ?');
+        whereBindings.push(filters.user);
     }
 
     const sql = `SELECT *,

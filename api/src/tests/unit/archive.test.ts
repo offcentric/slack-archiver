@@ -67,13 +67,16 @@ describe('message search scope', () => {
         const {sql, bindings} = buildSearchQuery('message', ['text'], 'deploy', 20, 2, {
             workspace: ['acme'],
             channel: 'general',
+            user: 'U1',
         });
         expect(sql).toContain('"workspace" = ANY(?::varchar[])');
         expect(sql).toContain('"channel" = ?');
+        expect(sql).toContain('"user" = ?');
         expect(sql).toContain('ORDER BY "datetime" DESC, "ts" DESC');
         expect(bindings[0]).toBe('deploy');
         expect(bindings[2]).toEqual(['acme']);
         expect(bindings[3]).toBe('general');
+        expect(bindings[4]).toBe('U1');
         expect(bindings.at(-2)).toBe(20);
         expect(bindings.at(-1)).toBe(20);
     });
