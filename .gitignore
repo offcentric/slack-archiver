@@ -20,3 +20,4 @@ frontend/.next
 frontend/.env.local
 *.tsbuildinfo
 api/ecosystem.config.cjs
+frontend/ecosystem.config.djs
