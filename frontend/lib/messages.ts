@@ -95,6 +95,15 @@ export function channelMessagesPath(workspace: string, channel: string): string 
     return `/w/${encodeURIComponent(workspace)}/messages?channel=${encodeURIComponent(channel)}`;
 }
 
+export function messagesByUserPath(workspace: string, user: string, channel?: string | null): string {
+    const params = new URLSearchParams();
+    if (channel) {
+        params.set('channel', channel);
+    }
+    params.set('user', user);
+    return `/w/${encodeURIComponent(workspace)}/messages?${params.toString()}`;
+}
+
 export function mediaPath(workspace: string, id: number): string {
     return `/w/${encodeURIComponent(workspace)}/media/${id}`;
 }

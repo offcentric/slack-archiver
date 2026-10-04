@@ -350,6 +350,9 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .grid tbody tr:hover td { background: #faf8ff; }
 .sort { padding: 0; font-weight: 700; color: var(--primary); }
 .message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.mention { font-weight: 600; color: var(--primary); }
+a.mention { text-decoration: none; }
+a.mention:hover { text-decoration: underline; }
 
 .has-thread td { background: #fbfaff; }
 .thread-toggle {

@@ -1,16 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import SlackText from '@/components/SlackText';
 import {archive} from '@/lib/client';
 import {authorName, channelMessagesPath, formatWhen, itemsOf, messagePath} from '@/lib/messages';
-import {ArchiveMessage} from '@/lib/types';
+import {ArchiveMessage, SlackUser} from '@/lib/types';
 
 const RECENT_MESSAGE_COUNT = 25;
 
 export default function RecentMessages({workspace}: {workspace: string}) {
     const [messages, setMessages] = useState<ArchiveMessage[]>([]);
+    const [people, setPeople] = useState<SlackUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -18,14 +19,20 @@ export default function RecentMessages({workspace}: {workspace: string}) {
         let cancelled = false;
         (async () => {
             setLoading(true);
-            const res = await archive<{items?: ArchiveMessage[]}>('message/list', {
-                workspace,
-                _limit: RECENT_MESSAGE_COUNT,
-                _page: 1,
-                _orderby: ['ts', 'desc'],
-            });
+            const [res, userRes] = await Promise.all([
+                archive<{items?: ArchiveMessage[]}>('message/list', {
+                    workspace,
+                    _limit: RECENT_MESSAGE_COUNT,
+                    _page: 1,
+                    _orderby: ['ts', 'desc'],
+                }),
+                archive<{items?: SlackUser[]}>('slackuser/list', {workspace}),
+            ]);
             if (cancelled) {
                 return;
+            }
+            if (userRes.ok) {
+                setPeople(itemsOf<SlackUser>(userRes.data).filter((person) => !person.workspace || person.workspace === workspace));
             }
             if (!res.ok) {
                 setMessages([]);
@@ -41,6 +48,16 @@ export default function RecentMessages({workspace}: {workspace: string}) {
             cancelled = true;
         };
     }, [workspace]);
+
+    const names = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const person of people) {
+            if (person.uid) {
+                map.set(person.uid, person.real_name || person.name || person.uid);
+            }
+        }
+        return map;
+    }, [people]);
 
     return (
         <section className="recent" aria-labelledby="recent-messages">
@@ -59,11 +76,11 @@ export default function RecentMessages({workspace}: {workspace: string}) {
                                 </p>
                             )}
                             <p className="muted">
-                                <span className="result-author">{authorName(message, new Map())}</span>
+                                <span className="result-author">{authorName(message, names)}</span>
                                 {' · '}
                                 <Link href={messagePath(workspace, message.ts)} title="Go to message">{formatWhen(message.datetime) || message.ts}</Link>
                             </p>
-                            <p className="message-text">{message.text ? <SlackText text={message.text}/> : '—'}</p>
+                            <p className="message-text">{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel}/> : '—'}</p>
                         </li>
                     ))}
                 </ul>

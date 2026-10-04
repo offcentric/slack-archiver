@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {isEmail, loginErrorMessage, sendCodeOutcome, sessionOutcome, sessionUnavailableMessage} from './login';
 import {onlyWorkspace} from './types';
-import {buildMessageListBody, formatWhen, userIdsForFilter} from './messages';
+import {buildMessageListBody, formatWhen, messagesByUserPath, userIdsForFilter} from './messages';
 import {formatSlackText, highlightTerms, slackTextParts} from './slackText';
 
 describe('login', () => {
@@ -96,6 +96,11 @@ describe('message list requests', () => {
         expect(userIdsForFilter('  ', people)).toBeUndefined();
     });
 
+    it('links a person to the message list filtered by them', () => {
+        expect(messagesByUserPath('acme', 'U1', 'general')).toBe('/w/acme/messages?channel=general&user=U1');
+        expect(messagesByUserPath('acme', 'U1')).toBe('/w/acme/messages?user=U1');
+    });
+
     it('shows the clock in 24-hour form', () => {
         const value = '2026-09-24T16:09:00Z';
         const date = new Date(value);
@@ -111,6 +116,12 @@ describe('slack text', () => {
     it('turns mentions into names', () => {
         const names = new Map([['U1', 'Ada']]);
         expect(formatSlackText('hi <@U1> see <#C1|general>', names)).toBe('hi Ada see #general');
+        expect(slackTextParts('yes, <@U01DGEKUFBJ> this', new Map([['U01DGEKUFBJ', 'mark']]))).toEqual([
+            {text: 'yes, '},
+            {text: 'mark', mention: 'U01DGEKUFBJ'},
+            {text: ' this'},
+        ]);
+        expect(slackTextParts('<@U404>')).toEqual([{text: 'U404', mention: 'U404'}]);
     });
 
     it('turns a Slack link into a labeled hyperlink', () => {

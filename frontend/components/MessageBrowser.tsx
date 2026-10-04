@@ -379,7 +379,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                 </td>
                                                 <td data-label="Author">{authorButton(message)}</td>
                                                 <td className="message-text" data-label="Message">
-                                                    <p>{message.text ? <SlackText text={message.text} names={names}/> : (message.files?.length ? '' : '—')}</p>
+                                                    <p>{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel || activeChannel}/> : (message.files?.length ? '' : '—')}</p>
                                                     <Attachments files={message.files} compact/>
                                                 </td>
                                                 <td data-label="Replies">
@@ -402,7 +402,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                     </td>
                                                     <td data-label="Author">{authorButton(reply)}</td>
                                                     <td className="message-text" data-label="Message">
-                                                        <p>{reply.text ? <SlackText text={reply.text} names={names}/> : (reply.files?.length ? '' : '—')}</p>
+                                                        <p>{reply.text ? <SlackText text={reply.text} names={names} workspace={workspace} channel={reply.channel || activeChannel}/> : (reply.files?.length ? '' : '—')}</p>
                                                         <Attachments files={reply.files} compact/>
                                                     </td>
                                                     <td className="muted" data-label="Thread">{truncate(formatSlackText(message.text, names), 48) || 'reply'}</td>

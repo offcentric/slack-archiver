@@ -11,6 +11,7 @@ const SLACK_TOKEN = /<@([A-Z0-9]+)(?:\|([^>]+))?>|<#([A-Z0-9]+)\|([^>]+)>|<((?:h
 export interface SlackTextPart {
     text: string;
     href?: string;
+    mention?: string;
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -109,7 +110,7 @@ export function slackTextParts(text: string | null | undefined, names: Map<strin
             parts.push({text: presentSlack(text.slice(last, index))});
         }
         if (match[1]) {
-            parts.push({text: presentSlack(match[2] || names.get(match[1]) || match[1])});
+            parts.push({text: presentSlack(match[2] || names.get(match[1]) || match[1]), mention: match[1]});
         } else if (match[4]) {
             parts.push({text: `#${presentSlack(match[4])}`});
         } else if (match[5]) {
@@ -123,7 +124,7 @@ export function slackTextParts(text: string | null | undefined, names: Map<strin
     if (last < text.length) {
         parts.push({text: presentSlack(text.slice(last))});
     }
-    return parts.filter((part) => part.text !== '' || part.href);
+    return parts.filter((part) => part.text !== '' || part.href || part.mention);
 }
 
 export function formatSlackText(text: string | null | undefined, names: Map<string, string> = new Map()): string {

@@ -162,7 +162,7 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
                                 {' · '}
                                 <Link href={messagePath(workspace, hit.ts)} title="Go to message">{formatWhen(hit.datetime)}</Link>
                             </p>
-                            <p className="message-text">{hit.text ? <SlackText text={hit.text} query={submittedQ}/> : '—'}</p>
+                            <p className="message-text">{hit.text ? <SlackText text={hit.text} names={names} query={submittedQ} workspace={workspace} channel={hit.channel}/> : '—'}</p>
                         </li>
                 ))}
             </ul>
