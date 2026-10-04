@@ -100,9 +100,11 @@ export function slackTextParts(text: string | null | undefined, names: Map<strin
         return [];
     }
     const parts: SlackTextPart[] = [];
+    const pattern = new RegExp(SLACK_TOKEN.source, 'g');
     let last = 0;
-    for (const match of text.matchAll(SLACK_TOKEN)) {
-        const index = match.index ?? 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+        const index = match.index;
         if (index > last) {
             parts.push({text: presentSlack(text.slice(last, index))});
         }
