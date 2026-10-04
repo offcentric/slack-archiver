@@ -30,8 +30,11 @@ export class FileController extends GenericController{
             if (!file?.workspace || !allowed.includes(file.workspace)) {
                 throw new Exception('no_access_to_workspace', status.forbidden);
             }
-            const message = await this.model.findSourceMessage(file.id, file.workspace);
-            return this.returnSuccess(res, {...file, message});
+            const [message, owner] = await Promise.all([
+                this.model.findSourceMessage(file.id, file.workspace),
+                this.model.findOwner(file.user, file.workspace),
+            ]);
+            return this.returnSuccess(res, {...file, message, ...owner});
         } catch (e) {
             return this.returnExceptionAsError(res, e);
         }

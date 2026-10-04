@@ -99,6 +99,10 @@ export function mediaPath(workspace: string, id: number): string {
     return `/w/${encodeURIComponent(workspace)}/media/${id}`;
 }
 
+export function mediaByUserPath(workspace: string, user: string): string {
+    return `/w/${encodeURIComponent(workspace)}/media?user=${encodeURIComponent(user)}`;
+}
+
 export function truncate(value: string, length = 160): string {
     const clean = value.replace(/\s+/g, ' ').trim();
     if (clean.length <= length) {

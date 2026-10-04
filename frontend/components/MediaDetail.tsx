@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useEffect, useState} from 'react';
 import ArchiveMedia from '@/components/ArchiveMedia';
 import {archive} from '@/lib/client';
-import {formatWhen, messagePath} from '@/lib/messages';
+import {formatWhen, mediaByUserPath, messagePath} from '@/lib/messages';
 import {ArchiveFile} from '@/lib/types';
 
 export default function MediaDetail({workspace, id}: {workspace: string; id: string}) {
@@ -51,7 +51,9 @@ export default function MediaDetail({workspace, id}: {workspace: string; id: str
             <p><Link href={`/w/${encodeURIComponent(workspace)}/media`}>Back to media</Link></p>
             <ArchiveMedia file={file} controls/>
             <p>{formatWhen(file.created_at)}</p>
-            <p className="muted">{who}</p>
+            <p className="muted">
+                {file.user ? <Link href={mediaByUserPath(workspace, file.user)}>{who}</Link> : who}
+            </p>
             {file.message?.ts && (
                 <p>
                     <Link href={messagePath(workspace, file.message.ts)}>

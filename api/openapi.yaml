@@ -1853,7 +1853,15 @@ components:
         user:
           type: string
           nullable: true
-          description: Slack user id of the uploader. Not joined to `slackuser`.
+          description: Slack user id of the uploader.
+        real_name:
+          type: string
+          nullable: true
+          description: Uploader display name (`slackuser.real_name`) on media list and `POST /file/get`.
+        slack_name:
+          type: string
+          nullable: true
+          description: Uploader Slack username (`slackuser.name`) on media list and `POST /file/get`.
         workspace:
           type: string
           nullable: true

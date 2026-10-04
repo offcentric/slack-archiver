@@ -269,6 +269,17 @@ export class File extends GenericModel {
         return {ts: row.ts, channel: row.channel || null};
     }
 
+    async findOwner(uid: string | null | undefined, workspace: string): Promise<{real_name: string | null; slack_name: string | null}> {
+        if (!uid) {
+            return {real_name: null, slack_name: null};
+        }
+        const row = await db('slackuser').where({uid, workspace}).first('real_name', 'name');
+        return {
+            real_name: row?.real_name || null,
+            slack_name: row?.name || null,
+        };
+    }
+
     async save(payload, workspace) {
         this.workspace = workspace;
         // console.log("SAVE FILE", payload);

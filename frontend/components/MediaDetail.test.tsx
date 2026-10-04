@@ -23,6 +23,8 @@ describe('media detail', () => {
                 title: 'Clip',
                 mimetype: 'image/png',
                 workspace: 'acme',
+                user: 'U045NQPQB',
+                slack_name: 'mark',
                 message: {ts: '1700000000.000100', channel: 'general'},
             },
         });
@@ -31,6 +33,7 @@ describe('media detail', () => {
 
         const link = await screen.findByRole('link', {name: 'View message in #general'});
         expect(link.getAttribute('href')).toBe('/w/acme/messages/1700000000.000100');
+        expect(screen.getByRole('link', {name: 'mark'}).getAttribute('href')).toBe('/w/acme/media?user=U045NQPQB');
         expect(archive).toHaveBeenCalledWith('file/get', {id: 4});
     });
 });
