@@ -22,6 +22,7 @@ import {
 } from '@/lib/messages';
 import {hrefWith, queryValue} from '@/lib/viewQuery';
 import {appendPage, LoadMore} from '@/lib/useLoadMore';
+import SlackText from '@/components/SlackText';
 import {formatSlackText} from '@/lib/slackText';
 import {ArchiveMessage, SlackUser} from '@/lib/types';
 
@@ -378,7 +379,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                 </td>
                                                 <td data-label="Author">{authorButton(message)}</td>
                                                 <td className="message-text" data-label="Message">
-                                                    <p>{formatSlackText(message.text, names) || (message.files?.length ? '' : '—')}</p>
+                                                    <p>{message.text ? <SlackText text={message.text} names={names}/> : (message.files?.length ? '' : '—')}</p>
                                                     <Attachments files={message.files} compact/>
                                                 </td>
                                                 <td data-label="Replies">
@@ -401,7 +402,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                     </td>
                                                     <td data-label="Author">{authorButton(reply)}</td>
                                                     <td className="message-text" data-label="Message">
-                                                        <p>{formatSlackText(reply.text, names) || (reply.files?.length ? '' : '—')}</p>
+                                                        <p>{reply.text ? <SlackText text={reply.text} names={names}/> : (reply.files?.length ? '' : '—')}</p>
                                                         <Attachments files={reply.files} compact/>
                                                     </td>
                                                     <td className="muted" data-label="Thread">{truncate(formatSlackText(message.text, names), 48) || 'reply'}</td>

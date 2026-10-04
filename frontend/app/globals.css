@@ -73,6 +73,7 @@ button.user-link {
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 2px;
+    text-align: left;
 }
 button.user-link:hover:not(:disabled) { transform: none; box-shadow: none; color: var(--primary-2); }
 button.ghost { border: 1px solid var(--line); }
@@ -276,6 +277,15 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
     margin-bottom: 0.4rem;
 }
 .mode-card strong { font-size: 1.15rem; }
+
+.recent { margin-top: 2rem; }
+.recent h2 {
+    font-family: Palatino, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-weight: 500;
+    font-size: 1.45rem;
+    margin: 0;
+}
+.recent .status { padding: 1rem 0; }
 
 /* Message browser */
 .browser { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; min-height: 0; overflow: hidden; }

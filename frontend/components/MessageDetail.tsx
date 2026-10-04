@@ -5,7 +5,7 @@ import {useEffect, useMemo, useState} from 'react';
 import Attachments from '@/components/Attachments';
 import {archive} from '@/lib/client';
 import {authorName, channelMessagesPath, formatWhen, itemsOf, messagePath} from '@/lib/messages';
-import {formatSlackText} from '@/lib/slackText';
+import SlackText from '@/components/SlackText';
 import {ArchiveMessage, SlackUser} from '@/lib/types';
 
 export default function MessageDetail({workspace, ts}: {workspace: string; ts: string}) {
@@ -83,7 +83,7 @@ export default function MessageDetail({workspace, ts}: {workspace: string; ts: s
                         <strong>{authorName(message, names)}</strong>
                         <Link href={messagePath(workspace, message.ts)}>{formatWhen(message.datetime) || message.ts}</Link>
                     </header>
-                    <p className="message-text">{formatSlackText(message.text, names) || '—'}</p>
+                    <p className="message-text">{message.text ? <SlackText text={message.text} names={names}/> : '—'}</p>
                     <Attachments files={message.files}/>
                 </section>
             ))}

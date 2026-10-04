@@ -83,7 +83,7 @@ export function formatWhen(value?: string | null): string {
         return value;
     }
     const day = new Intl.DateTimeFormat(undefined, {day: 'numeric', month: 'short', year: 'numeric'}).format(date);
-    const time = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'}).format(date);
+    const time = new Intl.DateTimeFormat(undefined, {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}).format(date);
     return `${day} at ${time}`;
 }
 

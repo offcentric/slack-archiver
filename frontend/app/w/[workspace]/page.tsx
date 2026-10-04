@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {useParams} from 'next/navigation';
+import RecentMessages from '@/components/RecentMessages';
 import RequireAuth from '@/components/RequireAuth';
 import {useSession} from '@/context/SessionContext';
 
@@ -37,6 +38,7 @@ export default function WorkspacePage() {
                             <span className="muted">Images and videos from the archive.</span>
                         </Link>
                     </div>
+                    <RecentMessages workspace={workspace}/>
                 </section>
             )}
         </RequireAuth>

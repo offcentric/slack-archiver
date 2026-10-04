@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest';
 import {isEmail, loginErrorMessage, sendCodeOutcome, sessionOutcome, sessionUnavailableMessage} from './login';
 import {onlyWorkspace} from './types';
-import {buildMessageListBody, userIdsForFilter} from './messages';
-import {formatSlackText, highlightTerms} from './slackText';
+import {buildMessageListBody, formatWhen, userIdsForFilter} from './messages';
+import {formatSlackText, highlightTerms, slackTextParts} from './slackText';
 
 describe('login', () => {
     it('hides every send-code failure except a server error', () => {
@@ -95,12 +95,46 @@ describe('message list requests', () => {
         expect(userIdsForFilter('nobody', people)).toEqual(['__none__']);
         expect(userIdsForFilter('  ', people)).toBeUndefined();
     });
+
+    it('shows the clock in 24-hour form', () => {
+        const value = '2026-09-24T16:09:00Z';
+        const date = new Date(value);
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        const formatted = formatWhen(value);
+        expect(formatted).toContain(`${hour}:${minute}`);
+        expect(formatted).not.toMatch(/\b(AM|PM)\b/);
+    });
 });
 
 describe('slack text', () => {
     it('turns mentions into names', () => {
         const names = new Map([['U1', 'Ada']]);
         expect(formatSlackText('hi <@U1> see <#C1|general>', names)).toBe('hi Ada see #general');
+    });
+
+    it('turns a Slack link into a labeled hyperlink', () => {
+        expect(slackTextParts('see <https://slack.offcentric.com/|slack.offcentric.com> today')).toEqual([
+            {text: 'see '},
+            {text: 'slack.offcentric.com', href: 'https://slack.offcentric.com/'},
+            {text: ' today'},
+        ]);
+        expect(slackTextParts('go to <https://example.com/a?b=1&amp;c=2>')).toEqual([
+            {text: 'go to '},
+            {text: 'https://example.com/a?b=1&c=2', href: 'https://example.com/a?b=1&c=2'},
+        ]);
+        expect(formatSlackText('1 &lt; 2 &amp; 3 &quot;hi&quot; &#39;there&#39;')).toBe('1 < 2 & 3 "hi" \'there\'');
+    });
+
+    it('turns standard Slack emoji shortcodes into characters', () => {
+        expect(formatSlackText('nice :thumbsup: and :+1:')).toBe('nice 👍 and 👍');
+        expect(formatSlackText('yes :thumbsup::skin-tone-3:')).toBe('yes 👍🏼');
+        expect(formatSlackText('ship :rocket:')).toBe('ship 🚀');
+        expect(formatSlackText('keep :not_a_real_emoji: and `:thumbsup:`')).toBe('keep :not_a_real_emoji: and `:thumbsup:`');
+        expect(slackTextParts('see <https://example.com/:thumbsup:|ok :heart:>')).toEqual([
+            {text: 'see '},
+            {text: 'ok ❤️', href: 'https://example.com/:thumbsup:'},
+        ]);
     });
 
     it('marks only the searched words', () => {

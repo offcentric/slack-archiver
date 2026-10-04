@@ -5,7 +5,7 @@ import {usePathname, useRouter, useSearchParams} from 'next/navigation';
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {archive} from '@/lib/client';
 import {authorName, channelMessagesPath, formatWhen, itemsOf, messagePath, PAGE_SIZE} from '@/lib/messages';
-import {formatSlackText, highlightTerms} from '@/lib/slackText';
+import SlackText from '@/components/SlackText';
 import {ArchiveMessage, SlackUser} from '@/lib/types';
 import {hrefWith, queryPage, queryValue} from '@/lib/viewQuery';
 
@@ -150,10 +150,7 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
             {error && <p className="banner error" role="alert">{error}</p>}
             {searched && !hits.length && !error && <p className="status">No messages matched.</p>}
             <ul className="results">
-                {hits.map((hit) => {
-                    const text = formatSlackText(hit.text);
-                    const parts = highlightTerms(text, submittedQ);
-                    return (
+                {hits.map((hit) => (
                         <li key={hit.ts}>
                             {hit.channel && (
                                 <p className="result-channel">
@@ -165,12 +162,9 @@ export default function SearchBrowser({workspace}: {workspace: string}) {
                                 {' · '}
                                 <Link href={messagePath(workspace, hit.ts)} title="Go to message">{formatWhen(hit.datetime)}</Link>
                             </p>
-                            <p className="message-text">{text ? parts.map((part, index) => (
-                                part.match ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>
-                            )) : '—'}</p>
+                            <p className="message-text">{hit.text ? <SlackText text={hit.text} query={submittedQ}/> : '—'}</p>
                         </li>
-                    );
-                })}
+                ))}
             </ul>
             {hits.length > 0 && (
                 <div className="pager">
