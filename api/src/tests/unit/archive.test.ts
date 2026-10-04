@@ -70,6 +70,7 @@ describe('message search scope', () => {
         });
         expect(sql).toContain('"workspace" = ANY(?::varchar[])');
         expect(sql).toContain('"channel" = ?');
+        expect(sql).toContain('ORDER BY "datetime" DESC, "ts" DESC');
         expect(bindings[0]).toBe('deploy');
         expect(bindings[2]).toEqual(['acme']);
         expect(bindings[3]).toBe('general');

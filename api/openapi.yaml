@@ -681,7 +681,9 @@ paths:
       description: |
         PostgreSQL FTS (`english` config, `plainto_tsquery`) on **`message.text` only**.
         Results are a **raw array** of message rows plus a numeric `rank` — not the
-        paginated `{ items }` envelope, and **no joined children**.
+        paginated `{ items }` envelope, and **no joined children**. Rows are ordered
+        by `datetime` descending (newest first), then `ts` descending. `rank` is
+        still included and is not the sort key.
 
         Default `limit` 20, `page` 1 (offset `(page - 1) * limit`).
 
@@ -703,7 +705,7 @@ paths:
               page: 1
       responses:
         '200':
-          description: Ranked message rows (possibly empty)
+          description: Message rows newest first (possibly empty)
           content:
             application/json:
               schema:

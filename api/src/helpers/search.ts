@@ -36,7 +36,7 @@ export const buildSearchQuery = (
              ts_rank_cd(to_tsvector('english', ${searchFieldsString} ), plainto_tsquery(?)) AS rank
               FROM "${tableName}"
               WHERE ${where.join(' AND ')}
-              ORDER BY rank DESC
+              ORDER BY "datetime" DESC, "ts" DESC
               LIMIT ? OFFSET ?`;
 
     return {

@@ -150,7 +150,7 @@ Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is om
 | POST/GET | `/message/list` | yes | `workspace?`, `channel?`, `user?`, `date_from?`, `date_to?`, `_orderby?`, `_limit?`, `_page?` | paginated `{ items, totalitems, totalpages, page }` |
 | POST/GET | `/message/listthreaded` | yes | same as `/message/list` | paginated top-level messages (`reply_to` null); each item has `replies[]` in `ts` ASC. `_orderby` sorts parents only |
 | POST | `/message/get` | yes | `id` **or** `ts`; `simple?` | one message; nested `slackuser`, `files`, `attachments`, `blocks`, `replies` |
-| POST | `/message/search` | yes | `q` required; `workspace?`, `channel?`, `limit?`, `page?` | **array** of ranked rows (FTS on `message.text` only), limited to the session workspaces. `channel` is applied when set |
+| POST | `/message/search` | yes | `q` required; `workspace?`, `channel?`, `limit?`, `page?` | **array** of rows (FTS on `message.text` only), newest `datetime` first, limited to the session workspaces. `channel` is applied when set |
 | POST/GET | `/file/list` | yes | `workspace?`, `user?`, `channel?`, `media?`, `date_from?`, `date_to?`, pagination | paginated collection. `media: true` returns images and videos; `channel` then limits them to files attached in that channel |
 | POST | `/file/get` | yes | `id` | file row |
 | GET | `/file/content/{id}` | yes | — | file bytes when `savepath` is inside `FILES_DOWNLOAD_DIRECTORY` and the workspace is allowed |
