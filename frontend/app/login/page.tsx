@@ -7,7 +7,7 @@ import {useSession} from '@/context/SessionContext';
 import {isEmail, loginErrorMessage, sendCodeOutcome} from '@/lib/login';
 
 export default function LoginPage() {
-    const {refresh} = useSession();
+    const {refresh, error: sessionError} = useSession();
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
@@ -15,6 +15,7 @@ export default function LoginPage() {
     const [notice, setNotice] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    const shownError = error || sessionError || '';
 
     const sendCode = async (event: FormEvent) => {
         event.preventDefault();
@@ -50,7 +51,11 @@ export default function LoginPage() {
             setError(loginErrorMessage(res.status, data.message));
             return;
         }
-        await refresh();
+        const session = await refresh();
+        if (session?.error) {
+            setError(session.error);
+            return;
+        }
         router.push('/');
     };
 
@@ -89,7 +94,7 @@ export default function LoginPage() {
                     </button>
                 </div>
                 {notice && <p className="banner" role="status">{notice}</p>}
-                {error && <p className="banner error" role="alert">{error}</p>}
+                {shownError && <p className="banner error" role="alert">{shownError}</p>}
             </form>
         </div>
     );

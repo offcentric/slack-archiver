@@ -21,6 +21,15 @@ describe('HTTP integration', () => {
         expect(res.body.message).toContain('missing_required_fields');
     });
 
+    it('POST /user/getuserdata with an unknown session is a 401, not a 200 logged_out', async () => {
+        const res = await request(app)
+            .post('/user/getuserdata')
+            .set('Authorization', 'Bearer not-a-real-session')
+            .send({});
+        expect(res.status).toBe(401);
+        expect(res.body.message).toBe('auth_fail');
+    });
+
     it('POST /message/list without a session is unauthorized', async () => {
         const res = await request(app).post('/message/list').send({workspace: 'acme', channel: 'general'});
         expect(res.status).toBe(401);

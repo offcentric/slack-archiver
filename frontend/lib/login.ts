@@ -12,6 +12,30 @@ export function loginErrorMessage(status: number, apiMessage?: string): string {
     return 'That code is incorrect or has expired. Request a new code and try again.';
 }
 
+export type SessionOutcome = 'ok' | 'unauthenticated' | 'unavailable';
+
+/**
+ * The API answers an unknown Bearer session with HTTP 200 `{status: 'logged_out'}`
+ * rather than 401, and an API build that predates `/user/getuserdata` answers 404.
+ * Only the first two mean "not logged in"; anything else is an API problem and must
+ * not be mistaken for a missing session.
+ */
+export function sessionOutcome(status: number, data: unknown): SessionOutcome {
+    const body = (data && typeof data === 'object' ? data : {}) as {userData?: unknown; status?: unknown};
+    if (status === 200 && body.userData) {
+        return 'ok';
+    }
+    if (status === 401 || (status === 200 && body.status === 'logged_out')) {
+        return 'unauthenticated';
+    }
+    return 'unavailable';
+}
+
+export function sessionUnavailableMessage(upstreamStatus?: number): string {
+    const detail = upstreamStatus ? ` (HTTP ${upstreamStatus} from the archive API)` : '';
+    return `Signed in, but the archive API could not confirm your session${detail}. The API may be down or running an older build.`;
+}
+
 export function isEmail(value: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }

@@ -7,7 +7,7 @@ import {useSession} from '@/context/SessionContext';
 import {onlyWorkspace} from '@/lib/types';
 
 export default function HomePage() {
-    const {user, loading} = useSession();
+    const {user, loading, error} = useSession();
     const router = useRouter();
 
     useEffect(() => {
@@ -15,15 +15,20 @@ export default function HomePage() {
             return;
         }
         if (!user) {
-            router.replace('/login');
+            if (!error) {
+                router.replace('/login');
+            }
             return;
         }
         const only = onlyWorkspace(user);
         if (only) {
             router.replace(`/w/${encodeURIComponent(only)}`);
         }
-    }, [loading, user, router]);
+    }, [loading, user, error, router]);
 
+    if (!loading && !user && error) {
+        return <p className="banner error status" role="alert">{error}</p>;
+    }
     if (loading || !user) {
         return <p className="status">Loading your archive…</p>;
     }

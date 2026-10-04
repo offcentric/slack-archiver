@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {isEmail, loginErrorMessage, sendCodeOutcome} from './login';
+import {isEmail, loginErrorMessage, sendCodeOutcome, sessionOutcome, sessionUnavailableMessage} from './login';
 import {onlyWorkspace} from './types';
 import {buildMessageListBody, userIdsForFilter} from './messages';
 import {formatSlackText} from './slackText';
@@ -17,6 +17,16 @@ describe('login', () => {
         expect(loginErrorMessage(401, 'auth_fail')).toMatch(/incorrect or has expired/);
         expect(loginErrorMessage(400, 'invalid_code_format')).toMatch(/6-digit/);
         expect(loginErrorMessage(500)).toMatch(/unavailable/);
+    });
+
+    it('separates a missing session from a broken archive API', () => {
+        expect(sessionOutcome(200, {userData: {id: 1}})).toBe('ok');
+        expect(sessionOutcome(401, {message: 'auth_fail'})).toBe('unauthenticated');
+        expect(sessionOutcome(200, {status: 'logged_out', success: true})).toBe('unauthenticated');
+        expect(sessionOutcome(404, {error: true, code: 404})).toBe('unavailable');
+        expect(sessionOutcome(500, {})).toBe('unavailable');
+        expect(sessionOutcome(200, {})).toBe('unavailable');
+        expect(sessionUnavailableMessage(404)).toMatch(/HTTP 404/);
     });
 
     it('checks a basic email shape', () => {
