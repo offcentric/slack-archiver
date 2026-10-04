@@ -2,7 +2,7 @@ const { env } = require("process");
 
 module.exports = {
     apps : [{
-        name: 'SLACK_ARCHIVER',
+        name: 'Slack Archiver API',
         script: 'node --experimental-specifier-resolution=node --no-warnings dist/server.js',
         env: {
             COMMON_VARIABLE: 'true',

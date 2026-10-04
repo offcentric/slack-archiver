@@ -2,7 +2,7 @@ const { env } = require("process");
 
 module.exports = {
     apps : [{
-        name: 'SLACK_ARCHIVER',
+        name: 'Slack Archiver API',
         script: 'tsx watch src/server.ts',
         env: {
             COMMON_VARIABLE: 'true',
