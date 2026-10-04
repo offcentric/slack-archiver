@@ -1852,6 +1852,16 @@ components:
         workspace:
           type: string
           nullable: true
+        message:
+          type: object
+          nullable: true
+          description: On `POST /file/get`, the earliest archived message that includes this file. Null when the file is not attached to a message.
+          properties:
+            ts:
+              type: string
+            channel:
+              type: string
+              nullable: true
         url:
           type: string
           nullable: true

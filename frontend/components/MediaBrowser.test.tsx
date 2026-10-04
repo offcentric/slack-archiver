@@ -60,6 +60,8 @@ describe('media browser', () => {
 
         expect(await screen.findByRole('button', {name: 'Clip 1'})).toBeTruthy();
         expect(await screen.findByRole('button', {name: 'Clip 2'})).toBeTruthy();
+        const imageLink = screen.getAllByRole('link').find((link) => link.getAttribute('href') === '/w/acme/media/1000');
+        expect(imageLink?.getAttribute('target')).toBe('_blank');
         expect(screen.queryByRole('button', {name: 'Next'})).toBeNull();
     });
 

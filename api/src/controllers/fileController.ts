@@ -21,6 +21,22 @@ export class FileController extends GenericController{
         this.model.limit = 500;
     }
 
+    async get(req:Request, res:Response) {
+        try {
+            const sessionData = await checkAuth(req);
+            const payload = this.getPayload();
+            const file = await this.model._get(payload, true, !req.body.simple);
+            const allowed = getWorkspaceNames(sessionData.workspaces);
+            if (!file?.workspace || !allowed.includes(file.workspace)) {
+                throw new Exception('no_access_to_workspace', status.forbidden);
+            }
+            const message = await this.model.findSourceMessage(file.id, file.workspace);
+            return this.returnSuccess(res, {...file, message});
+        } catch (e) {
+            return this.returnExceptionAsError(res, e);
+        }
+    }
+
     async list(req:Request, res:Response) {
         try{
             const sessionData = await checkAuth(req);

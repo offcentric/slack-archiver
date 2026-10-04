@@ -33,6 +33,7 @@ export interface ArchiveFile {
     slack_name?: string | null;
     created_at?: string | null;
     workspace?: string | null;
+    message?: {ts: string; channel?: string | null} | null;
 }
 
 export interface ArchiveMessage {

@@ -257,6 +257,18 @@ export class File extends GenericModel {
         };
     }
 
+    async findSourceMessage(fileId: number, workspace: string): Promise<{ts: string; channel: string | null} | null> {
+        const row = await db('message')
+            .where('workspace', workspace)
+            .whereRaw('? = ANY(file_ids)', [fileId])
+            .orderBy('datetime', 'asc')
+            .first('ts', 'channel');
+        if (!row?.ts) {
+            return null;
+        }
+        return {ts: row.ts, channel: row.channel || null};
+    }
+
     async save(payload, workspace) {
         this.workspace = workspace;
         // console.log("SAVE FILE", payload);

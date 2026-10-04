@@ -172,11 +172,9 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                                 )}
                             </button>
                             <p>
-                                {video ? (
-                                    <a href={mediaPath(workspace, file.id)} target="_blank" rel="noopener noreferrer">
-                                        {formatWhen(file.created_at)}
-                                    </a>
-                                ) : formatWhen(file.created_at)}
+                                <a href={mediaPath(workspace, file.id)} target="_blank" rel="noopener noreferrer">
+                                    {formatWhen(file.created_at)}
+                                </a>
                             </p>
                             <p className="muted">
                                 {file.user ? (
