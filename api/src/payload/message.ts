@@ -20,6 +20,9 @@ export const PayloadFields:PayloadInterface = {
     channels: {
         workspace: {type:'string', required: true},
     },
+    stats: {
+        workspace: {type:'string', required: true},
+    },
     get: {
         id: {type:'number', required: "||ts"},
         ts: {type:'string', required: "||id"},

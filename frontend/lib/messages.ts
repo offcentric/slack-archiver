@@ -3,6 +3,7 @@ import {ArchiveMessage, SlackUser} from './types';
 import {queryValue, QuerySource} from './viewQuery';
 
 export const PAGE_SIZE = 40;
+export const ALL_CHANNELS = '*';
 
 export interface MessageFilters extends DateRange {
     text: string;
@@ -35,11 +36,13 @@ export function buildMessageListBody(input: {
 }) {
     const body: Record<string, unknown> = {
         workspace: input.workspace,
-        channel: input.channel,
         _limit: input.limit ?? PAGE_SIZE,
         _page: input.page,
         _orderby: input.orderBy,
     };
+    if (input.channel && input.channel !== ALL_CHANNELS) {
+        body.channel = input.channel;
+    }
     const text = input.filters.text.trim();
     if (text) {
         body.text = text;

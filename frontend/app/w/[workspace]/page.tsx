@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import RecentMessages from '@/components/RecentMessages';
 import RequireAuth from '@/components/RequireAuth';
+import WorkspaceStats from '@/components/WorkspaceStats';
 import {useSession} from '@/context/SessionContext';
 
 export default function WorkspacePage() {
@@ -25,7 +26,7 @@ export default function WorkspacePage() {
                         <Link className="mode-card mode-messages" href={`${base}/messages`}>
                             <span className="mode-icon" aria-hidden="true">#</span>
                             <strong>Messages</strong>
-                            <span className="muted">Browse one channel at a time.</span>
+                            <span className="muted">Browse one channel, or every channel at once.</span>
                         </Link>
                         <Link className="mode-card mode-search" href={`${base}/search`}>
                             <span className="mode-icon" aria-hidden="true">⌕</span>
@@ -38,6 +39,7 @@ export default function WorkspacePage() {
                             <span className="muted">Images and videos from the archive.</span>
                         </Link>
                     </div>
+                    <WorkspaceStats workspace={workspace}/>
                     <RecentMessages workspace={workspace}/>
                 </section>
             )}

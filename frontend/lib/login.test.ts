@@ -86,6 +86,16 @@ describe('message list requests', () => {
         });
         expect(open).not.toHaveProperty('date_from');
         expect(open).not.toHaveProperty('date_to');
+        const everywhere = buildMessageListBody({
+            workspace: 'acme',
+            channel: '*',
+            page: 1,
+            orderBy: ['ts', 'desc'],
+            filters: {text: '', user: '', dateFrom: '', dateTo: ''},
+            userIds: ['U1'],
+        });
+        expect(everywhere).not.toHaveProperty('channel');
+        expect(everywhere).toMatchObject({workspace: 'acme', user: ['U1']});
     });
 
     it('maps an author name to Slack ids and misses to an empty result', () => {

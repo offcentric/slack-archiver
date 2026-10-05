@@ -6,6 +6,7 @@ import MessageBrowser from './MessageBrowser';
 
 const archive = vi.fn();
 const push = vi.hoisted(() => vi.fn());
+const params = vi.hoisted(() => ({channel: ''}));
 
 vi.mock('@/lib/client', () => ({
     archive: (...args: unknown[]) => archive(...args),
@@ -14,7 +15,10 @@ vi.mock('@/lib/client', () => ({
 vi.mock('next/navigation', () => ({
     useRouter: () => ({push, replace: vi.fn()}),
     usePathname: () => '/w/acme/messages',
-    useSearchParams: () => ({get: () => '', toString: () => ''}),
+    useSearchParams: () => ({
+        get: (key: string) => (key === 'channel' ? params.channel : ''),
+        toString: () => (params.channel ? `channel=${params.channel}` : ''),
+    }),
 }));
 
 class ImmediateObserver {
@@ -34,6 +38,7 @@ afterEach(() => {
     cleanup();
     archive.mockReset();
     push.mockReset();
+    params.channel = '';
     vi.unstubAllGlobals();
 });
 
@@ -215,6 +220,9 @@ describe('message browser', () => {
         await user.click(screen.getByRole('button', {name: '#random'}));
         expect(toggle.getAttribute('aria-expanded')).toBe('false');
         expect(push).toHaveBeenCalledWith('/w/acme/messages?channel=random');
+        await user.click(toggle);
+        await user.click(screen.getByRole('button', {name: 'All channels'}));
+        expect(push).toHaveBeenCalledWith('/w/acme/messages?channel=*');
 
         await user.click(within(screen.getByRole('group', {name: 'Sort messages'})).getByRole('button', {name: 'Date ↓'}));
         await waitFor(() => {
@@ -223,5 +231,34 @@ describe('message browser', () => {
                 _orderby: ['datetime', 'asc'],
             }));
         });
+    });
+
+    it('lists every channel when All channels is in the address bar', async () => {
+        params.channel = '*';
+        archive.mockImplementation(async (path: string) => {
+            if (path === 'message/channels') {
+                return {ok: true, status: 200, data: {items: ['general', 'random']}};
+            }
+            if (path === 'slackuser/list') {
+                return {ok: true, status: 200, data: {items: [{uid: 'U1', real_name: 'Ada', name: 'ada'}]}};
+            }
+            return {
+                ok: true,
+                status: 200,
+                data: {
+                    items: [{id: 1, ts: '1.0', text: 'across rooms', channel: 'random', datetime: '2026-01-01T10:00:00Z', user: 'U1'}],
+                    totalitems: 1,
+                },
+            };
+        });
+
+        render(<MessageBrowser workspace="acme"/>);
+
+        expect(await screen.findByRole('heading', {name: 'All channels'})).toBeTruthy();
+        expect(screen.getByRole('button', {name: 'All channels'}).getAttribute('aria-current')).toBe('true');
+        expect(screen.getByRole('link', {name: '#random'}).getAttribute('href')).toBe('/w/acme/messages?channel=random');
+        expect(await screen.findByText('across rooms')).toBeTruthy();
+        expect(archive).toHaveBeenCalledWith('message/listthreaded', expect.not.objectContaining({channel: expect.anything()}));
+        expect(archive).toHaveBeenCalledWith('message/listthreaded', expect.objectContaining({workspace: 'acme'}));
     });
 });

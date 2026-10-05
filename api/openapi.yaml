@@ -1162,6 +1162,65 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /message/stats:
+    post:
+      tags: [Messages]
+      operationId: messageStats
+      summary: Message counts and the busiest channels and people
+      description: |
+        Authenticated. Counts every archived message in the workspace, including
+        thread replies. `periods` has three entries, `week` (past 7 days), `month`
+        (past 30 days), and `year` (past 365 days), measured from the database
+        clock. Each entry includes `count` and the 10 busiest `channels` and
+        `users` in that window. `403` if `workspace` is outside the session ACL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace]
+              properties:
+                workspace:
+                  type: string
+      responses:
+        '200':
+          description: Workspace message statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periods:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key: {type: string, enum: [week, month, year]}
+                        label: {type: string}
+                        count: {type: integer}
+                        channels:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              channel: {type: string}
+                              count: {type: integer}
+                        users:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              uid: {type: string}
+                              name: {type: string}
+                              count: {type: integer}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ForbiddenWorkspace'
+
   /webhook:
     post:
       tags: [Ingest]

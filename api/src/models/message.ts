@@ -320,4 +320,58 @@ export class Message extends GenericModel {
             .select('channel');
         return rows.map((row) => row.channel).filter(Boolean);
     }
+
+    async workspaceStats(workspace: string) {
+        const periods = [
+            {key: 'week', label: 'Past 7 days', interval: '7 days'},
+            {key: 'month', label: 'Past 30 days', interval: '30 days'},
+            {key: 'year', label: 'Past year', interval: '1 year'},
+        ] as const;
+        const result = [];
+        for (const period of periods) {
+            const since = () => db.raw(`now() - interval '${period.interval}'`);
+            const totalRow = await db('message')
+                .where('workspace', workspace)
+                .where('datetime', '>=', since())
+                .count('* as count')
+                .first();
+            const channels = await db('message')
+                .where('workspace', workspace)
+                .where('datetime', '>=', since())
+                .whereNotNull('channel')
+                .where('channel', '!=', '')
+                .groupBy('channel')
+                .select('channel')
+                .select(db.raw('count(*)::int as count'))
+                .orderBy('count', 'desc')
+                .orderBy('channel', 'asc')
+                .limit(10);
+            const users = await db('message as message')
+                .leftJoin('slackuser', function () {
+                    this.on('slackuser.uid', '=', 'message.user').andOn('slackuser.workspace', '=', 'message.workspace');
+                })
+                .where('message.workspace', workspace)
+                .where('message.datetime', '>=', since())
+                .whereNotNull('message.user')
+                .where('message.user', '!=', '')
+                .groupBy('message.user', 'slackuser.real_name', 'slackuser.name')
+                .select('message.user as uid', 'slackuser.real_name', 'slackuser.name')
+                .select(db.raw('count(*)::int as count'))
+                .orderBy('count', 'desc')
+                .orderBy('message.user', 'asc')
+                .limit(10);
+            result.push({
+                key: period.key,
+                label: period.label,
+                count: Number(totalRow?.count ?? 0),
+                channels: channels.map((row) => ({channel: row.channel, count: Number(row.count)})),
+                users: users.map((row) => ({
+                    uid: row.uid,
+                    name: row.real_name || row.name || row.uid,
+                    count: Number(row.count),
+                })),
+            });
+        }
+        return {periods: result};
+    }
 }

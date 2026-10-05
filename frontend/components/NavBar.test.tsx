@@ -38,6 +38,7 @@ describe('nav bar account menu', () => {
         expect(screen.queryByRole('menuitem', {name: 'Log out'})).toBeNull();
 
         await user.click(screen.getByRole('button', {name: 'Ada Lovelace'}));
+        expect(screen.getByRole('menuitem', {name: 'Statistics'}).getAttribute('href')).toBe('/w/acme/stats');
         expect(screen.getByRole('menuitem', {name: 'Admin'}).getAttribute('href')).toBe('/admin');
 
         await user.click(screen.getByRole('menuitem', {name: 'Log out'}));

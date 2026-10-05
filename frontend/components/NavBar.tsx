@@ -79,6 +79,9 @@ export default function NavBar() {
                     </button>
                     {open && (
                         <div className="account-menu" id="account-menu" role="menu">
+                            {workspace && (
+                                <Link className="account-item" role="menuitem" href={`${base}/stats`} aria-current={pathname.startsWith(`${base}/stats`) ? 'page' : undefined} onClick={() => setOpen(false)}>Statistics</Link>
+                            )}
                             {isAdmin(user) && (
                                 <Link className="account-item" role="menuitem" href="/admin" onClick={() => setOpen(false)}>Admin</Link>
                             )}

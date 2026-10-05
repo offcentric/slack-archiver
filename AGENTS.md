@@ -156,6 +156,7 @@ Workspace ACL: list endpoints call `handleWorkspaceFilter`. If `workspace` is om
 | GET | `/file/content/{id}` | yes | — | file bytes when `savepath` is inside `FILES_DOWNLOAD_DIRECTORY` and the workspace is allowed |
 | GET | `/file/thumbnail/{id}` | yes | — | JPEG still at `static/thumbnails/{id}.jpg` when the workspace is allowed |
 | POST | `/message/channels` | yes | `workspace` | `{ items }` distinct archived channel names |
+| POST | `/message/stats` | yes | `workspace` | per period (7 days, 30 days, year): message count plus the 10 busiest channels and people |
 | POST | `/admin/sync` | admin (`role` 100) | `action` `users` or `messages`, `workspace`, `channel?`, `limit?` | Slack import. Does not import DMs |
 | POST | `/admin/thumbnails` | admin (`role` 100) | `workspace` | Backfill missing video stills with ffmpeg. `npm run thumbnails -- [workspace] [--force]` in `api/` does the same |
 | POST | `/admin/channels` | admin (`role` 100) | `workspace` | public and private Slack channel names for the sync form |

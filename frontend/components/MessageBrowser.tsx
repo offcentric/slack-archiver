@@ -10,6 +10,8 @@ import {archive} from '@/lib/client';
 import {
     authorName,
     buildMessageListBody,
+    ALL_CHANNELS,
+    channelMessagesPath,
     formatWhen,
     itemsOf,
     messageFiltersFromQuery,
@@ -70,6 +72,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
     const narrow = useNarrowLayout();
     const channelToggle = useRef<HTMLButtonElement>(null);
 
+    const allChannels = queryChannel === ALL_CHANNELS;
     const activeChannel = queryChannel || channels[0] || '';
 
     const toggleThread = (ts: string) => {
@@ -285,6 +288,16 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                 <p className="sidebar-label">Channels</p>
                 {channels.length === 0 && !loading && <p className="muted">No archived channels yet.</p>}
                 <ul>
+                    <li>
+                        <button
+                            type="button"
+                            className={allChannels ? 'channel is-active' : 'channel'}
+                            aria-current={allChannels ? 'true' : undefined}
+                            onClick={() => selectChannel(ALL_CHANNELS)}
+                        >
+                            All channels
+                        </button>
+                    </li>
                     {channels.map((channel) => (
                         <li key={channel}>
                             <button
@@ -312,7 +325,7 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                         >
                             Channels
                         </button>
-                        <h1>{activeChannel ? `#${activeChannel}` : 'Messages'}</h1>
+                        <h1>{allChannels ? 'All channels' : activeChannel ? `#${activeChannel}` : 'Messages'}</h1>
                     </div>
                     <p className="muted">{total} message{total === 1 ? '' : 's'}</p>
                 </header>
@@ -379,6 +392,11 @@ export default function MessageBrowser({workspace}: {workspace: string}) {
                                                 </td>
                                                 <td data-label="Author">{authorButton(message)}</td>
                                                 <td className="message-text" data-label="Message">
+                                                    {allChannels && message.channel && (
+                                                        <p className="message-channel">
+                                                            <Link href={channelMessagesPath(workspace, message.channel)}>#{message.channel}</Link>
+                                                        </p>
+                                                    )}
                                                     <div className="slack-body">{message.text ? <SlackText text={message.text} names={names} workspace={workspace} channel={message.channel || activeChannel}/> : (message.files?.length ? '' : '—')}</div>
                                                     <Attachments files={message.files} compact/>
                                                 </td>

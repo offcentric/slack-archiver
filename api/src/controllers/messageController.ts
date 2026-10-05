@@ -123,6 +123,21 @@ export class MessageController extends GenericController{
             return this.returnExceptionAsError(res, e);
         }
     }
+
+    async stats(req:Request, res:Response) {
+        try {
+            const sessionData = await checkAuth(req);
+            const payload = this.getPayload();
+            const allowed = getWorkspaceNames(sessionData.workspaces);
+            if (!allowed.includes(payload.workspace)) {
+                throw new Exception('no_access_to_workspace', status.forbidden);
+            }
+            const stats = await this.model.workspaceStats(payload.workspace);
+            return this.returnSuccess(res, stats);
+        } catch (e) {
+            return this.returnExceptionAsError(res, e);
+        }
+    }
 }
 
 export const get = async(req:Request, res:Response) => {
@@ -143,4 +158,8 @@ export const listthreaded = async(req:Request, res:Response) => {
 
 export const channels = async(req:Request, res:Response) => {
     return await (new MessageController(req)).channels(req, res);
+}
+
+export const stats = async(req:Request, res:Response) => {
+    return await (new MessageController(req)).stats(req, res);
 }
