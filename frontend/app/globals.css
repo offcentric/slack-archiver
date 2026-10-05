@@ -408,6 +408,28 @@ input:focus, select:focus, button:focus-visible, a:focus-visible {
 .grid tbody tr:last-child td { border-bottom: 0; }
 .grid tbody tr:hover td { background: #faf8ff; }
 .sort { padding: 0; font-weight: 700; color: var(--primary); }
+.media-sort {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+    margin: 0 0 0.85rem;
+}
+.media-sort .sort-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.media-sort .sort {
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+}
+.media-sort .sort:hover:not(:disabled) { transform: none; box-shadow: none; border-color: var(--primary); }
+.media-sort .sort[aria-pressed="true"] { border-color: var(--primary); background: #f1edfb; }
 .message-text { overflow-wrap: anywhere; }
 .slack-body p, .slack-body blockquote { margin: 0 0 0.35rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .slack-body p:last-child, .slack-body blockquote:last-child { margin-bottom: 0; }

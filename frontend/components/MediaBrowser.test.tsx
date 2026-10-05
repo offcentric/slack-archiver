@@ -142,4 +142,35 @@ describe('media browser', () => {
         expect(permalink.getAttribute('href')).toBe('/w/acme/media/4');
         expect(permalink.getAttribute('target')).toBe('_blank');
     });
+
+    it('reverses the album to oldest first', async () => {
+        archive.mockImplementation(async (path: string) => {
+            if (path === 'message/channels') {
+                return {ok: true, status: 200, data: {items: []}};
+            }
+            if (path === 'slackuser/list') {
+                return {ok: true, status: 200, data: {items: []}};
+            }
+            return {ok: true, status: 200, data: {items: [], totalitems: 0}};
+        });
+
+        const user = userEvent.setup();
+        render(<MediaBrowser workspace="acme"/>);
+        await waitFor(() => {
+            expect(archive).toHaveBeenCalledWith('file/list', expect.objectContaining({
+                _orderby: ['created_at', 'desc'],
+                _page: 1,
+            }));
+        });
+
+        await user.click(screen.getByRole('button', {name: 'Oldest'}));
+        await waitFor(() => {
+            expect(archive).toHaveBeenCalledWith('file/list', expect.objectContaining({
+                _orderby: ['created_at', 'asc'],
+                _page: 1,
+            }));
+        });
+        expect(push).toHaveBeenCalledWith('/w/acme/media?sort=asc');
+        expect(screen.getByRole('button', {name: 'Oldest'}).getAttribute('aria-pressed')).toBe('true');
+    });
 });

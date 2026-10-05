@@ -13,11 +13,18 @@ import {appendPage, LoadMore} from '@/lib/useLoadMore';
 import {ArchiveFile, SlackUser} from '@/lib/types';
 import {hrefWith, queryValue} from '@/lib/viewQuery';
 
-function mediaQuery(source: {get(name: string): string | null}): {channel: string; user: string; range: DateRange} {
+type MediaOrder = 'asc' | 'desc';
+
+function mediaOrder(source: {get(name: string): string | null}): MediaOrder {
+    return queryValue(source, 'sort') === 'asc' ? 'asc' : 'desc';
+}
+
+function mediaQuery(source: {get(name: string): string | null}): {channel: string; user: string; range: DateRange; order: MediaOrder} {
     return {
         channel: queryValue(source, 'channel'),
         user: queryValue(source, 'user'),
         range: {dateFrom: queryValue(source, 'from'), dateTo: queryValue(source, 'to')},
+        order: mediaOrder(source),
     };
 }
 
@@ -35,6 +42,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
     const [draftUser, setDraftUser] = useState(initial.user);
     const [range, setRange] = useState<DateRange>(initial.range);
     const [draftRange, setDraftRange] = useState<DateRange>(initial.range);
+    const [order, setOrder] = useState<MediaOrder>(initial.order);
     const [page, setPage] = useState(1);
     const [items, setItems] = useState<ArchiveFile[]>([]);
     const [total, setTotal] = useState(0);
@@ -70,6 +78,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
         setChannel(next.channel);
         setUser(next.user);
         setRange(next.range);
+        setOrder(next.order);
         setPage(1);
     }, [queryKey]);
 
@@ -86,7 +95,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                 media: true,
                 _limit: PAGE_SIZE,
                 _page: page,
-                _orderby: ['created_at', 'desc'],
+                _orderby: ['created_at', order],
             };
             if (channel) {
                 body.channel = channel;
@@ -119,7 +128,7 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
         return () => {
             cancelled = true;
         };
-    }, [workspace, channel, user, range, page]);
+    }, [workspace, channel, user, range, order, page]);
 
     useEffect(() => {
         if (!active) {
@@ -137,6 +146,15 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
     const remember = (updates: Record<string, string>) => {
         setPage(1);
         router.push(hrefWith(pathname, searchParams, updates));
+    };
+
+    const chooseOrder = (next: MediaOrder) => {
+        if (next === order) {
+            return;
+        }
+        setOrder(next);
+        setPage(1);
+        remember({sort: next === 'asc' ? 'asc' : ''});
     };
 
     const filterByUser = (uid: string) => {
@@ -186,6 +204,11 @@ export default function MediaBrowser({workspace}: {workspace: string}) {
                 <DateRangeFields value={draftRange} onChange={setDraftRange}/>
                 <button type="submit">Apply</button>
             </form>
+            <div className="media-sort" role="group" aria-label="Sort media">
+                <span className="sort-label">Sort</span>
+                <button type="button" className="sort" aria-pressed={order === 'desc'} onClick={() => chooseOrder('desc')}>Newest</button>
+                <button type="button" className="sort" aria-pressed={order === 'asc'} onClick={() => chooseOrder('asc')}>Oldest</button>
+            </div>
             {error && <p className="banner error" role="alert">{error}</p>}
             {loading && <Spinner label="Loading media…"/>}
             <ul className="album" aria-busy={loading} data-stale={loading && items.length > 0 ? 'true' : undefined}>
