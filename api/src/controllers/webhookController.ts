@@ -5,6 +5,7 @@ import {getEnvConfig} from "helpers/config";
 import {Message} from "models/message";
 import {db} from '../db/knex';
 import {generateThumbnailsForSlackFiles} from "helpers/thumbnails";
+import {isIgnoredSlackUser} from "helpers/slackIgnore";
 
 export const process = async (req, res) => {
 
@@ -71,6 +72,9 @@ export const process = async (req, res) => {
                 // return returnError(res,'channel_on_ignore_list: '+channelName);
                 return;
             }
+            if (message.subtype !== 'message_deleted' && isIgnoredSlackUser(workspace, message.user)) {
+                return returnSuccess(res, {skipped: true});
+            }
 
             ret = await (new Message(req)).save(message, workspace, channelName, event.thread_ts);
             if (event.subtype !== 'message_deleted' && Array.isArray(message.files)) {
@@ -80,6 +84,9 @@ export const process = async (req, res) => {
             }
         }else if(eventType === 'team_join'){
             const userData = event.user;
+            if (isIgnoredSlackUser(workspace, userData?.id)) {
+                return returnSuccess(res, {skipped: true});
+            }
             ret = {id: await (new Slackuser(req)).save(userData, workspace)}
         }else if(['channel_created','channel_deleted','group_deleted','channel_rename','group_rename','channel_archive','group_archive','channel_unarchive','group_unarchive'].includes(eventType) || await slack.privateChannelCreated(event)){
             ret = await slack.refeshChannelList();

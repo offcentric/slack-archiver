@@ -955,7 +955,9 @@ paths:
         Admin role only (`role` 100). `action` is `users` or `messages`.
         `messages` requires `channel` and may include `limit`, `latest`, and `oldest`
         (Slack timestamps as strings). The call blocks until the Slack import finishes.
-        Direct messages are not requested. `403` `admin_only` for other roles, or
+        Direct messages are not requested. User ids in
+        `SLACK_IGNORED_USERS_<WORKSPACE>` are omitted from a `users` import, and
+        their messages are omitted from a `messages` import. `403` `admin_only` for other roles, or
         `no_access_to_workspace` when the workspace is outside the session ACL.
       security:
         - BearerAuth: []
@@ -1180,6 +1182,8 @@ paths:
         `group_deleted`. Other types → `invalid_event_type: …`.
 
         Channels listed in `SLACK_IGNORED_CHANNELS_<WORKSPACE>` are skipped.
+        User ids listed in `SLACK_IGNORED_USERS_<WORKSPACE>` are skipped, including
+        `team_join` and their messages.
         Persist errors may be posted to `SLACK_ALERTS_CHANNEL_<WORKSPACE>` (default
         `alerts`).
 

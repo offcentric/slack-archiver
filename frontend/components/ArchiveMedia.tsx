@@ -97,6 +97,7 @@ export default function ArchiveMedia({file, controls = false, autoPlay = false, 
                 controls={controls}
                 autoPlay={autoPlay}
                 muted={muted}
+                playsInline
                 preload="metadata"
                 poster={thumbnailSrc(file)}
                 aria-label={`${label} (video)`}

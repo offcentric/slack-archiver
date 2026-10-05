@@ -89,7 +89,7 @@ Also: `user_session`, `user_login`, `api_log`, `error_log`. Code also reads `ip_
 
 Auth is Slack `body.token` vs `SLACK_VERIFICATION_TOKEN_<WORKSPACE>` (workspace name uppercased in env keys). URL verification: if `body.challenge` is present, echo it.
 
-Handled events: `message` (including edits/deletes), `team_join`, channel/group created/deleted/renamed/archived/unarchived. Ignored channels: `SLACK_IGNORED_CHANNELS_<WORKSPACE>`. Errors can post to `SLACK_ALERTS_CHANNEL_<WORKSPACE>` (default `alerts`).
+Handled events: `message` (including edits/deletes), `team_join`, channel/group created/deleted/renamed/archived/unarchived. Ignored channels: `SLACK_IGNORED_CHANNELS_<WORKSPACE>`. Ignored Slack user ids: `SLACK_IGNORED_USERS_<WORKSPACE>` (comma-separated). Those people are left out of user sync, `team_join`, and message ingest, including CLI backfill. Errors can post to `SLACK_ALERTS_CHANNEL_<WORKSPACE>` (default `alerts`).
 
 Message save: attachments → files (download + upsert) → blocks → upsert message on `ts`. Deletes remove the message and related child rows. After a message with a video is saved, the webhook starts thumbnail generation for that file (`ffmpeg`, one JPEG under `static/thumbnails/`). A missing `ffmpeg` binary is logged and does not fail the webhook.
 
@@ -192,7 +192,7 @@ A client should keep `session_id` out of JavaScript (the Next app stores it in a
 5. Throw `Exception(message, statusCode)` for controlled errors (`models/exception.ts`).
 6. Upsert: `_addedit(..., 'edit')` is `INSERT … ON CONFLICT(index)`.
 
-Env: copy `api/.env-template` → `api/.env`. Per-workspace keys use the workspace name **UPPERCASE**: `SLACK_BOT_TOKEN_ACME`, `SLACK_USER_TOKEN_ACME`, `SLACK_VERIFICATION_TOKEN_ACME`, `SLACK_IGNORED_CHANNELS_ACME`, `SLACK_ALERTS_CHANNEL_ACME`.
+Env: copy `api/.env-template` → `api/.env`. Per-workspace keys use the workspace name **UPPERCASE**: `SLACK_BOT_TOKEN_ACME`, `SLACK_USER_TOKEN_ACME`, `SLACK_VERIFICATION_TOKEN_ACME`, `SLACK_IGNORED_CHANNELS_ACME`, `SLACK_IGNORED_USERS_ACME`, `SLACK_ALERTS_CHANNEL_ACME`.
 
 ## Product constraints
 

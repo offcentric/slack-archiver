@@ -8,6 +8,7 @@ import {Block} from "../models/block";
 import Exception from "../models/exception";
 import {Slackuser} from "models/slackuser";
 import {initSlack}  from '../providers/slack';
+import {isIgnoredSlackUser} from "helpers/slackIgnore";
 import {db} from '../db/knex';
 
 const metadata:Array<Metadata> = [
@@ -196,19 +197,20 @@ export class Message extends GenericModel {
                 console.log("SKIPPING", message);
                 continue;
             }
-            this.messageCount++;
-
-
-            if (doSave) {
-                await this.save(message, workspace, channelName)
-            } else {
-                console.log("MESSAGE LOADED", message);
+            const ignoredAuthor = isIgnoredSlackUser(workspace, message.user);
+            if (!ignoredAuthor) {
+                this.messageCount++;
+                if (doSave) {
+                    await this.save(message, workspace, channelName)
+                } else {
+                    console.log("MESSAGE LOADED", message);
+                }
             }
 
             if (message.reply_count) {
                 const replies = await slack.getRepliesForMessage(channelName, message.ts);
                 for (let reply of replies.messages) {
-                    if (reply.reply_count || !reply.client_msg_id) {
+                    if (reply.reply_count || !reply.client_msg_id || isIgnoredSlackUser(workspace, reply.user)) {
                         continue;
                     }
                     this.messageCount++;

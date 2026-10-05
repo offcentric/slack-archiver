@@ -66,7 +66,8 @@ In your `.env` file:
 ###  Workspace-specific Configuration
 1. Replace all instances of [[WORKSPACE]] with your workspace's actual name, in ALL CAPS.
 2. For `SLACK_IGNORED_CHANNELS_YOURWORKSPACE`, you can add a comma-separated list of channels in your workspace you never want to archive.
-3. For `SLACK_ALERTS_CHANNEL_YOURWORKSPACE`, enter the name of a channel where you want to generate alert and error messages, in the case of the server encountering an error while archiving (defaults to `alerts`).
+3. For `SLACK_IGNORED_USERS_YOURWORKSPACE`, add a comma-separated list of Slack user IDs that should never be archived, including their messages. `USLACKBOT` is the usual Slackbot id.
+4. For `SLACK_ALERTS_CHANNEL_YOURWORKSPACE`, enter the name of a channel where you want to generate alert and error messages, in the case of the server encountering an error while archiving (defaults to `alerts`).
 
 ### Slack App set up
 1. Log into Slack, then go to https://api.slack.com/apps/.

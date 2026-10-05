@@ -27,10 +27,10 @@ export const sync = async (req: Request, res: Response) => {
         if (payload.action === 'users') {
             const slack = initSlack(payload.workspace);
             const resp = await slack.getUserlist();
-            await (new Slackuser(req)).saveBatch(resp, payload.workspace);
+            const imported = await (new Slackuser(req)).saveBatch(resp, payload.workspace);
             return returnSuccess(res, {
                 workspace: payload.workspace,
-                imported: resp.members?.length ?? 0,
+                imported,
             });
         }
 
